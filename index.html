@@ -173,14 +173,14 @@
             </div>
         </section>
 
-        <!-- Main Dashboard Split: Watchlist Grid + Dynamic Focus Chart & Logs -->
+        <!-- Main Dashboard Split: Consolidated Single-Line Watchlist + Alert Logs -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Left Side: Live Stock Watchlist Cards (8 Cols) -->
+            <!-- Consolidated Watchlist Single-Line List View (8 Cols) -->
             <div class="lg:col-span-8 space-y-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-list-ul text-emerald-400 text-sm"></i> Live Watchlist
+                        <i class="fa-solid fa-list-ul text-emerald-400 text-sm"></i> Single-Line Watchlist
                         <span id="watchlistCount" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">0</span>
                     </h2>
                     <div class="flex items-center gap-2">
@@ -188,9 +188,19 @@
                     </div>
                 </div>
 
-                <!-- Watchlist Grid -->
-                <div id="watchlistGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- Dynamic Watchlist Cards Populated via JS -->
+                <!-- Watchlist Table Header -->
+                <div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-mono text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                    <div class="col-span-2">Ticker</div>
+                    <div class="col-span-2 text-right">Price</div>
+                    <div class="col-span-2 text-right">Change</div>
+                    <div class="col-span-2 text-right">High / Low</div>
+                    <div class="col-span-3 text-center">Degree Indicator</div>
+                    <div class="col-span-1 text-center">Action</div>
+                </div>
+
+                <!-- Watchlist Single-Line Items Container -->
+                <div id="watchlistGrid" class="space-y-2">
+                    <!-- Dynamic Single Line Watchlist Rows Populated via JS -->
                 </div>
 
                 <!-- Empty State Banner -->
@@ -203,46 +213,10 @@
                 </div>
             </div>
 
-            <!-- Right Side: Focus Chart & Triggered Alerts Log (4 Cols) -->
+            <!-- Right Side: Alert Rules & Triggered Alerts Log (4 Cols) -->
             <div class="lg:col-span-4 space-y-6">
-                
-                <!-- Primary Detailed Chart Card -->
-                <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl border border-slate-800/80">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <span id="chartSymbol" class="font-mono font-bold text-lg text-slate-100">AAPL</span>
-                            <span id="chartPrice" class="font-mono text-sm text-slate-400">$0.00</span>
-                        </div>
-                        <div class="flex gap-1 text-[11px] font-mono">
-                            <button class="chart-time-btn active bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded" data-time="1D">1D</button>
-                            <button class="chart-time-btn bg-slate-800 text-slate-400 px-2 py-0.5 rounded hover:text-slate-200" data-time="1W">1W</button>
-                            <button class="chart-time-btn bg-slate-800 text-slate-400 px-2 py-0.5 rounded hover:text-slate-200" data-time="1M">1M</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Chart Canvas -->
-                    <div class="relative h-48 w-full">
-                        <canvas id="mainChart"></canvas>
-                    </div>
-
-                    <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800 text-center font-mono text-xs">
-                        <div class="bg-slate-900/50 p-2 rounded-lg">
-                            <span class="text-slate-500 block text-[10px] uppercase">High</span>
-                            <span id="statHigh" class="text-slate-200 font-semibold">$0.00</span>
-                        </div>
-                        <div class="bg-slate-900/50 p-2 rounded-lg">
-                            <span class="text-slate-500 block text-[10px] uppercase">Low</span>
-                            <span id="statLow" class="text-slate-200 font-semibold">$0.00</span>
-                        </div>
-                        <div class="bg-slate-900/50 p-2 rounded-lg">
-                            <span class="text-slate-500 block text-[10px] uppercase">Vol</span>
-                            <span id="statVol" class="text-slate-200 font-semibold">0</span>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Alert Rules & Active Log Panel -->
-                <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl flex flex-col h-[380px]">
+                <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl flex flex-col h-[520px]">
                     <!-- Panel Tabs -->
                     <div class="flex border-b border-slate-800 mb-3 pb-2 gap-4">
                         <button id="tabAlertLogs" class="text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5">
@@ -393,12 +367,10 @@
             ],
             alertLogs: JSON.parse(localStorage.getItem('pt_alertLogs')) || [],
             activeTab: 'LOGS',
-            selectedSymbol: 'AAPL',
             audioEnabled: true,
             feedMode: localStorage.getItem('pt_feedMode') || 'MOCK',
             finnhubKey: localStorage.getItem('pt_finnhubKey') || '',
             refreshIntervalMs: parseInt(localStorage.getItem('pt_refreshRate')) || 2000,
-            activeChart: null,
             audioCtx: null,
             timerId: null,
             ws: null
@@ -415,6 +387,30 @@
             'GOOGL': 178.30,
             'META': 502.10
         };
+
+        /**
+         * Calculates background RGB color for degree box indicator.
+         * Gradient range:
+         * <= -5% : Max Red rgb(255, 51, 102)
+         * 0%     : Light slate grey rgb(100, 116, 139)
+         * >= +5% : Max Green rgb(0, 255, 136)
+         */
+        function getDegreeShade(pct) {
+            const clampedPct = Math.max(-5, Math.min(5, pct));
+            if (clampedPct < 0) {
+                const t = clampedPct / -5; // 0 at 0%, 1 at -5%
+                const r = Math.round(100 + (255 - 100) * t);
+                const g = Math.round(116 + (51 - 116) * t);
+                const b = Math.round(139 + (102 - 139) * t);
+                return `rgb(${r}, ${g}, ${b})`;
+            } else {
+                const t = clampedPct / 5; // 0 at 0%, 1 at +5%
+                const r = Math.round(100 + (0 - 100) * t);
+                const g = Math.round(116 + (255 - 116) * t);
+                const b = Math.round(139 + (136 - 139) * t);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
 
         function initAudioContext() {
             if (!AppState.audioCtx) {
@@ -473,7 +469,6 @@
             const history = [];
             let current = basePrice;
             
-            // Generate 25 historical sample points for chart & sparkline
             for (let i = 0; i < 25; i++) {
                 const variation = (Math.random() - 0.49) * (basePrice * 0.008);
                 current = Math.max(1, current + variation);
@@ -500,111 +495,22 @@
             };
         }
 
-        function initMainChart() {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            
-            AppState.activeChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(25).fill(''),
-                    datasets: [{
-                        label: 'Price',
-                        data: [],
-                        borderColor: '#00ff88',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        tension: 0.25,
-                        fill: true,
-                        backgroundColor: (context) => {
-                            const bgCtx = context.chart.ctx;
-                            const gradient = bgCtx.createLinearGradient(0, 0, 0, 200);
-                            gradient.addColorStop(0, 'rgba(0, 255, 136, 0.25)');
-                            gradient.addColorStop(1, 'rgba(0, 255, 136, 0.0)');
-                            return gradient;
-                        }
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            titleColor: '#94a3b8',
-                            bodyColor: '#38bdf8',
-                            bodyFont: { family: 'monospace' },
-                            callbacks: {
-                                label: (context) => ` $${context.raw.toFixed(2)}`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: { display: false },
-                        y: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: {
-                                color: '#64748b',
-                                font: { family: 'monospace', size: 10 },
-                                callback: (val) => '$' + val.toFixed(2)
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateMainChart(symbol) {
-            if (!AppState.stocksData[symbol] || !AppState.activeChart) return;
-
-            const stock = AppState.stocksData[symbol];
-            const isPositive = stock.changePct >= 0;
-            const strokeColor = isPositive ? '#00ff88' : '#ff3366';
-
-            document.getElementById('chartSymbol').textContent = stock.symbol;
-            document.getElementById('chartPrice').textContent = `$${stock.price.toFixed(2)}`;
-            document.getElementById('chartPrice').className = `font-mono text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-500'}`;
-            document.getElementById('statHigh').textContent = `$${stock.high.toFixed(2)}`;
-            document.getElementById('statLow').textContent = `$${stock.low.toFixed(2)}`;
-            document.getElementById('statVol').textContent = stock.volume > 1000000 ? (stock.volume/1000000).toFixed(2) + 'M' : (stock.volume/1000).toFixed(0) + 'K';
-
-            AppState.activeChart.data.datasets[0].data = stock.history;
-            AppState.activeChart.data.datasets[0].borderColor = strokeColor;
-            
-            const gradient = AppState.activeChart.ctx.createLinearGradient(0, 0, 0, 180);
-            gradient.addColorStop(0, isPositive ? 'rgba(0, 255, 136, 0.25)' : 'rgba(255, 51, 102, 0.25)');
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-            AppState.activeChart.data.datasets[0].backgroundColor = gradient;
-
-            AppState.activeChart.update('none');
-        }
-
-        function generateSparklineSVG(history, isPositive) {
-            const width = 100;
-            const height = 30;
-            const min = Math.min(...history);
-            const max = Math.max(...history);
-            const range = (max - min) || 1;
-
-            const points = history.map((val, idx) => {
-                const x = (idx / (history.length - 1)) * width;
-                const y = height - ((val - min) / range) * (height - 6) - 3;
-                return `${x.toFixed(1)},${y.toFixed(1)}`;
-            }).join(' ');
-
-            const color = isPositive ? '#00ff88' : '#ff3366';
-
-            return `
-                <svg width="100%" height="30" viewBox="0 0 ${width} ${height}" class="overflow-visible">
-                    <polyline fill="none" stroke="${color}" stroke-width="2" points="${points}" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            `;
-        }
-
         function evaluateAlertRules(stock) {
+            // Pulse ticker row if degree of change exceeds 5% threshold in either direction
+            if (stock.changePct >= 5.0) {
+                const cardEl = document.getElementById(`stock-card-${stock.symbol}`);
+                if (cardEl && !cardEl.classList.contains('animate-pulse-green')) {
+                    cardEl.classList.add('animate-pulse-green');
+                    setTimeout(() => cardEl.classList.remove('animate-pulse-green'), 4000);
+                }
+            } else if (stock.changePct <= -5.0) {
+                const cardEl = document.getElementById(`stock-card-${stock.symbol}`);
+                if (cardEl && !cardEl.classList.contains('animate-pulse-red')) {
+                    cardEl.classList.add('animate-pulse-red');
+                    setTimeout(() => cardEl.classList.remove('animate-pulse-red'), 4000);
+                }
+            }
+
             AppState.alertRules.forEach(rule => {
                 if (rule.symbol !== stock.symbol) return;
 
@@ -718,46 +624,57 @@
                 if (!stock) return;
 
                 const isPositive = stock.changePct >= 0;
-                const bgPillClass = isPositive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20';
+                const shadedBg = getDegreeShade(stock.changePct);
 
                 if (!card) {
                     card = document.createElement('div');
                     card.id = `stock-card-${symbol}`;
-                    card.className = `glass-panel rounded-2xl p-4 transition-all duration-300 cursor-pointer border hover:border-slate-700/90 relative group overflow-hidden ${symbol === AppState.selectedSymbol ? 'ring-1 ring-emerald-500/50 border-emerald-500/40' : 'border-slate-800/80'}`;
-                    card.onclick = () => selectSymbolForChart(symbol);
+                    card.className = `glass-panel rounded-xl p-3 transition-all duration-300 border border-slate-800/80 hover:border-slate-700/90 relative group text-xs font-mono`;
 
                     grid.appendChild(card);
                 }
 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-mono font-bold text-base text-slate-100 tracking-wide">${stock.symbol}</span>
-                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${bgPillClass}">
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <!-- Ticker Symbol -->
+                        <div class="col-span-4 sm:col-span-2 flex items-center gap-2">
+                            <span class="font-bold text-slate-100 text-sm tracking-wide">${stock.symbol}</span>
+                        </div>
+
+                        <!-- Price -->
+                        <div class="col-span-4 sm:col-span-2 text-right">
+                            <span class="font-bold text-slate-100 text-sm">$${stock.price.toFixed(2)}</span>
+                        </div>
+
+                        <!-- % Change -->
+                        <div class="col-span-4 sm:col-span-2 text-right">
+                            <span class="font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}">
+                                ${isPositive ? '+' : ''}${stock.changePct.toFixed(2)}%
+                            </span>
+                        </div>
+
+                        <!-- Session High / Low -->
+                        <div class="hidden sm:block sm:col-span-2 text-right text-[11px] text-slate-400">
+                            <div>H: $${stock.high.toFixed(2)}</div>
+                            <div>L: $${stock.low.toFixed(2)}</div>
+                        </div>
+
+                        <!-- Shaded Color Box (Degree Indicator) -->
+                        <div class="col-span-10 sm:col-span-3">
+                            <div class="h-6 rounded-lg flex items-center justify-center font-bold text-[11px] text-slate-950 shadow-inner transition-all duration-300" 
+                                 style="background-color: ${shadedBg}; shadow: 0 0 10px ${shadedBg};">
+                                <span class="bg-slate-950/40 text-slate-100 px-2 py-0.5 rounded backdrop-blur-sm">
                                     ${isPositive ? '+' : ''}${stock.changePct.toFixed(2)}%
                                 </span>
                             </div>
-                            <span class="text-[10px] text-slate-500 font-mono">Vol: ${(stock.volume/1000).toFixed(0)}k</span>
                         </div>
-                        <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-600 hover:text-rose-400 transition p-1 text-xs opacity-0 group-hover:opacity-100">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
 
-                    <div class="grid grid-cols-2 gap-2 items-center my-1">
-                        <div>
-                            <span class="text-xl font-mono font-bold text-slate-100 tracking-tight">$${stock.price.toFixed(2)}</span>
-                            <span class="block text-[10px] text-slate-400 font-mono">Prev: $${stock.prevPrice.toFixed(2)}</span>
+                        <!-- Action -->
+                        <div class="col-span-2 sm:col-span-1 text-center">
+                            <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-500 hover:text-rose-400 transition p-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
                         </div>
-                        <div class="h-8">
-                            ${generateSparklineSVG(stock.history, isPositive)}
-                        </div>
-                    </div>
-
-                    <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono mt-2 pt-2 border-t border-slate-800/60">
-                        <span>H: $${stock.high.toFixed(2)}  L: $${stock.low.toFixed(2)}</span>
-                        <span class="text-[9px] text-slate-600">${new Date(stock.lastUpdated).toLocaleTimeString()}</span>
                     </div>
                 `;
             });
@@ -772,7 +689,7 @@
                 const color = isPositive ? 'text-emerald-400' : 'text-rose-500';
                 const arrow = isPositive ? '▲' : '▼';
                 return `
-                    <div class="inline-flex items-center gap-2 px-4 border-r border-slate-800/60 font-mono" onclick="selectSymbolForChart('${symbol}')">
+                    <div class="inline-flex items-center gap-2 px-4 border-r border-slate-800/60 font-mono cursor-pointer">
                         <span class="font-bold text-slate-300">${symbol}</span>
                         <span class="text-slate-100">$${stock.price.toFixed(2)}</span>
                         <span class="${color} text-[11px]">${arrow} ${Math.abs(stock.changePct).toFixed(2)}%</span>
@@ -879,7 +796,6 @@
 
             renderWatchlist();
             renderMarquee();
-            updateMainChart(AppState.selectedSymbol);
         }
 
         function startDataFeed() {
@@ -927,7 +843,6 @@
                             });
                             renderWatchlist();
                             renderMarquee();
-                            updateMainChart(AppState.selectedSymbol);
                         }
                     };
 
@@ -994,14 +909,7 @@
             if (updatedAny) {
                 renderWatchlist();
                 renderMarquee();
-                updateMainChart(AppState.selectedSymbol);
             }
-        }
-
-        function selectSymbolForChart(symbol) {
-            AppState.selectedSymbol = symbol;
-            renderWatchlist();
-            updateMainChart(symbol);
         }
 
         function removeStockFromWatchlist(e, symbol) {
@@ -1010,18 +918,11 @@
             delete AppState.stocksData[symbol];
             localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
             
-            if (AppState.selectedSymbol === symbol && AppState.watchlist.length > 0) {
-                AppState.selectedSymbol = AppState.watchlist[0];
-            }
-            
             const cardEl = document.getElementById(`stock-card-${symbol}`);
             if (cardEl) cardEl.remove();
 
             renderWatchlist();
             renderMarquee();
-            if (AppState.watchlist.length > 0) {
-                updateMainChart(AppState.selectedSymbol);
-            }
         }
 
         function addStockToWatchlist(symbol) {
@@ -1041,7 +942,6 @@
                     fetchFinnhubRestData();
                 }
 
-                selectSymbolForChart(cleanSymbol);
                 renderWatchlist();
                 renderMarquee();
             }
@@ -1066,7 +966,6 @@
             });
 
             // Init Visual Components
-            initMainChart();
             renderWatchlist();
             renderMarquee();
             renderAlertLogs();
@@ -1108,7 +1007,7 @@
 
             // Test Alert Trigger Button
             document.getElementById('triggerTestAlertBtn').addEventListener('click', () => {
-                const sym = AppState.selectedSymbol || 'NVDA';
+                const sym = AppState.watchlist[0] || 'NVDA';
                 if (!AppState.stocksData[sym]) return;
                 const dummyRule = { id: 'test', symbol: sym, color: 'GREEN' };
                 triggerAlertEffects(dummyRule, AppState.stocksData[sym], `[TEST ALERT] ${sym} simulated alert pulse triggered successfully!`);
