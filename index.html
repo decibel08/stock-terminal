@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hi Danny - Realtime Stock & Alert Terminal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f17',
+                        cardBg: 'rgba(18, 24, 38, 0.75)',
+                        borderDark: '#1e293b',
+                        neonGreen: '#00ff88',
+                        neonRed: '#ff3366',
+                        accentBlue: '#3b82f6'
+                    },
+                    animation: {
+                        'pulse-green': 'pulseGreen 1.2s infinite ease-in-out',
+                        'pulse-red': 'pulseRed 1.2s infinite ease-in-out',
+                        'marquee': 'marquee 25s linear infinite',
+                    },
+                    keyframes: {
+                        pulseGreen: {
+                            '0%, 100%': { boxShadow: '0 0 5px rgba(0,255,136,0.2)', borderColor: 'rgba(0,255,136,0.3)' },
+                            '50%': { boxShadow: '0 0 25px rgba(0,255,136,0.95), inset 0 0 15px rgba(0,255,136,0.3)', borderColor: '#00ff88' },
+                        },
+                        pulseRed: {
+                            '0%, 100%': { boxShadow: '0 0 5px rgba(255,51,102,0.2)', borderColor: 'rgba(255,51,102,0.3)' },
+                            '50%': { boxShadow: '0 0 25px rgba(255,51,102,0.95), inset 0 0 15px rgba(255,51,102,0.3)', borderColor: '#ff3366' },
+                        },
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-50%)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #080b11;
+            color: #f1f5f9;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col custom-scrollbar antialiased selection:bg-cyan-500 selection:text-white">
+
+    <!-- Top Live Ticker Marquee Bar -->
+    <div class="bg-slate-950 border-b border-slate-800/80 text-xs py-2 overflow-hidden whitespace-nowrap flex items-center relative z-20">
+        <div class="bg-emerald-500/10 border-r border-emerald-500/20 text-emerald-400 px-3 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 z-10 shadow-lg">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> LIVE TICKER
+        </div>
+        <div class="flex animate-marquee hover:[animation-play-state:paused] cursor-pointer" id="tickerMarquee">
+            <!-- Dynamic Marquee Content inserted via JS -->
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <header class="glass-panel sticky top-0 z-30 border-b border-slate-800/80 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <div class="flex items-center gap-2">
+                    <div class="p-2 bg-gradient-to-tr from-cyan-600 to-emerald-500 rounded-lg shadow-lg shadow-cyan-500/20">
+                        <i class="fa-solid me-0.5 fa-chart-line text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-black text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                            HI <span class="text-emerald-400">DANNY</span>
+                        </h1>
+                        <p class="text-[10px] text-slate-400 font-mono tracking-wider -mt-1">REALTIME ALERT TERMINAL</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 sm:hidden">
+                    <button id="mobileAudioToggle" class="p-2 bg-slate-800 rounded-lg text-slate-300">
+                        <i class="fa-solid fa-volume-high text-emerald-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header Quick Stats & Controls -->
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <div id="dataFeedBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-mono">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-slate-300" id="feedStatusText">Mock Stream Live</span>
+                </div>
+
+                <button id="settingsBtn" title="API Settings" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700/60 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear text-slate-400"></i>
+                    <span>Feed Settings</span>
+                </button>
+
+                <button id="audioToggleBtn" class="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+                    <span id="audioStatusText">Sound On</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
+        
+        <!-- Search & Control Toolbar -->
+        <section class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <!-- Stock Search Form -->
+                <div class="md:col-span-6 relative">
+                    <form id="addStockForm" class="flex gap-2">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="tickerInput" placeholder="Enter Symbol (e.g., AAPL, TSLA, NVDA, BTC-USD, MSFT)..." 
+                                class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 font-mono uppercase transition">
+                        </div>
+                        <button type="submit" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20 flex items-center gap-2 shrink-0">
+                            <i class="fa-solid fa-plus text-xs"></i> Add Ticker
+                        </button>
+                    </form>
+                    <!-- Quick Suggestions -->
+                    <div class="flex items-center gap-1.5 mt-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
+                        <span class="text-slate-500 font-mono text-[11px]">Popular:</span>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">AAPL</button>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">NVDA</button>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">TSLA</button>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">AMZN</button>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">GOOGL</button>
+                        <button class="quick-add hover:text-emerald-400 text-slate-400 px-2 py-0.5 rounded bg-slate-800/60 font-mono">BTC-USD</button>
+                    </div>
+                </div>
+
+                <!-- Alert Creator Button & Market Stats -->
+                <div class="md:col-span-6 flex items-center justify-start md:justify-end gap-3 border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
+                    <button id="openAlertModalBtn" class="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-bell-plus"></i> Set Custom Alert
+                    </button>
+                    <button id="triggerTestAlertBtn" class="w-full md:w-auto bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-medium px-3 py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-1.5" title="Test audio visual alert response">
+                        <i class="fa-solid fa-vial"></i> Test Alert
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Split: Watchlist Grid + Dynamic Focus Chart & Logs -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: Live Stock Watchlist Cards (8 Cols) -->
+            <div class="lg:col-span-8 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list-ul text-emerald-400 text-sm"></i> Live Watchlist
+                        <span id="watchlistCount" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">0</span>
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400 font-mono">Auto-Refresh: <span class="text-emerald-400 font-bold">Live</span></span>
+                    </div>
+                </div>
+
+                <!-- Watchlist Grid -->
+                <div id="watchlistGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Dynamic Watchlist Cards Populated via JS -->
+                </div>
+
+                <!-- Empty State Banner -->
+                <div id="emptyWatchlist" class="hidden glass-panel rounded-2xl p-12 text-center border border-dashed border-slate-800">
+                    <div class="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500 text-2xl">
+                        <i class="fa-solid fa-chart-line-down"></i>
+                    </div>
+                    <h3 class="text-slate-300 font-semibold text-base mb-1">Your Watchlist is Empty</h3>
+                    <p class="text-slate-500 text-xs max-w-sm mx-auto mb-4">Add tickers above to monitor real-time prices, percentage changes, and trigger alerts.</p>
+                </div>
+            </div>
+
+            <!-- Right Side: Focus Chart & Triggered Alerts Log (4 Cols) -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Primary Detailed Chart Card -->
+                <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl border border-slate-800/80">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span id="chartSymbol" class="font-mono font-bold text-lg text-slate-100">AAPL</span>
+                            <span id="chartPrice" class="font-mono text-sm text-slate-400">$0.00</span>
+                        </div>
+                        <div class="flex gap-1 text-[11px] font-mono">
+                            <button class="chart-time-btn active bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded" data-time="1D">1D</button>
+                            <button class="chart-time-btn bg-slate-800 text-slate-400 px-2 py-0.5 rounded hover:text-slate-200" data-time="1W">1W</button>
+                            <button class="chart-time-btn bg-slate-800 text-slate-400 px-2 py-0.5 rounded hover:text-slate-200" data-time="1M">1M</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Canvas -->
+                    <div class="relative h-48 w-full">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800 text-center font-mono text-xs">
+                        <div class="bg-slate-900/50 p-2 rounded-lg">
+                            <span class="text-slate-500 block text-[10px] uppercase">High</span>
+                            <span id="statHigh" class="text-slate-200 font-semibold">$0.00</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-2 rounded-lg">
+                            <span class="text-slate-500 block text-[10px] uppercase">Low</span>
+                            <span id="statLow" class="text-slate-200 font-semibold">$0.00</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-2 rounded-lg">
+                            <span class="text-slate-500 block text-[10px] uppercase">Vol</span>
+                            <span id="statVol" class="text-slate-200 font-semibold">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Rules & Active Log Panel -->
+                <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl flex flex-col h-[380px]">
+                    <!-- Panel Tabs -->
+                    <div class="flex border-b border-slate-800 mb-3 pb-2 gap-4">
+                        <button id="tabAlertLogs" class="text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-xs"></i> Trigger Feed
+                        </button>
+                        <button id="tabAlertRules" class="text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-sliders text-xs"></i> Active Rules (<span id="ruleCount">0</span>)
+                        </button>
+                    </div>
+
+                    <!-- Alert Feed Section -->
+                    <div id="alertLogFeed" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                        <!-- Dynamic Alert Logs -->
+                    </div>
+
+                    <!-- Active Rules List Section (Hidden by default) -->
+                    <div id="alertRulesList" class="hidden flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                        <!-- Dynamic Rules -->
+                    </div>
+
+                    <!-- Bottom Clear Feed Control -->
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                        <span class="text-slate-500 font-mono text-[11px]" id="lastAlertTime">No recent alerts</span>
+                        <button id="clearLogsBtn" class="text-slate-400 hover:text-slate-200 transition text-[11px] font-mono">
+                            <i class="fa-solid fa-trash-can mr-1"></i>Clear Feed
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: Set Custom Alert Rule -->
+    <div id="alertModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80 animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-100 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-emerald-400"></i> Configure Alert Rule
+                </h3>
+                <button id="closeAlertModalBtn" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="createRuleForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Target Stock Ticker</label>
+                    <select id="modalTickerSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Alert Condition Type</label>
+                    <select id="modalConditionType" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <option value="PRICE_ABOVE">Target Price Above ($)</option>
+                        <option value="PRICE_BELOW">Target Price Below ($)</option>
+                        <option value="PCT_INCREASE_SESSION">Session Spike Above (+%)</option>
+                        <option value="PCT_DECREASE_SESSION">Session Drop Below (-%)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Threshold Value</label>
+                    <div class="relative">
+                        <input type="number" step="0.01" id="modalThresholdValue" placeholder="e.g., 200.00 or 2.5" required
+                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <span id="thresholdUnit" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-500">$</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Visual Alert Flash Style</label>
+                    <select id="modalFlashColor" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <option value="GREEN">Glowing Neon Green (Bullish/Up)</option>
+                        <option value="RED">Glowing Neon Red (Bearish/Down)</option>
+                    </select>
+                </div>
+
+                <div class="pt-2 flex gap-3">
+                    <button type="button" id="cancelRuleBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl font-medium text-sm transition">Cancel</button>
+                    <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">Save Alert Rule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Settings & API Configuration -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-100 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-400"></i> Data Feed Settings
+                </h3>
+                <button id="closeSettingsModalBtn" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Data Source Mode</label>
+                    <select id="feedModeSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <option value="MOCK">Simulated Live Random Walk (No Key Required)</option>
+                        <option value="FINNHUB_REST" selected>Finnhub REST API (iFrame/Canvas Safe - Recommended)</option>
+                        <option value="FINNHUB">Finnhub WebSocket (Direct Streaming)</option>
+                    </select>
+                </div>
+
+                <div id="finnhubKeyContainer" class="hidden">
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Finnhub Free API Key</label>
+                    <input type="password" id="finnhubApiKeyInput" placeholder="Enter Finnhub API Key..." 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                    <p class="text-[11px] text-slate-500 mt-1">Get a free key at <a href="https://finnhub.io" target="_blank" class="text-emerald-400 underline">finnhub.io</a> to stream live market trades.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 mb-1">Refresh Frequency (Mock Mode)</label>
+                    <select id="refreshRateSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                        <option value="1000">1 Second (Hyper Live)</option>
+                        <option value="2000" selected>2 Seconds (Standard)</option>
+                        <option value="5000">5 Seconds</option>
+                    </select>
+                </div>
+
+                <div class="pt-2">
+                    <button id="saveSettingsBtn" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">Apply & Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none max-w-sm w-full"></div>
+
+    <script>
+        // Default Watchlist Symbols
+        const DEFAULT_WATCHLIST = ['AAPL', 'NVDA', 'TSLA', 'BTC-USD', 'AMZN', 'MSFT'];
+
+        // Core Application State
+        const AppState = {
+            watchlist: JSON.parse(localStorage.getItem('pt_watchlist')) || DEFAULT_WATCHLIST,
+            stocksData: {}, // Holds price, history, stats for each symbol
+            alertRules: JSON.parse(localStorage.getItem('pt_alertRules')) || [
+                { id: '1', symbol: 'NVDA', type: 'PCT_INCREASE_SESSION', threshold: 1.5, color: 'GREEN' },
+                { id: '2', symbol: 'TSLA', type: 'PCT_DECREASE_SESSION', threshold: 2.0, color: 'RED' }
+            ],
+            alertLogs: JSON.parse(localStorage.getItem('pt_alertLogs')) || [],
+            activeTab: 'LOGS',
+            selectedSymbol: 'AAPL',
+            audioEnabled: true,
+            feedMode: localStorage.getItem('pt_feedMode') || 'MOCK',
+            finnhubKey: localStorage.getItem('pt_finnhubKey') || '',
+            refreshIntervalMs: parseInt(localStorage.getItem('pt_refreshRate')) || 2000,
+            activeChart: null,
+            audioCtx: null,
+            timerId: null,
+            ws: null
+        };
+
+        // Base Initial Reference Prices for Realistic Mocking
+        const BASE_PRICES = {
+            'AAPL': 224.50,
+            'NVDA': 128.20,
+            'TSLA': 245.80,
+            'BTC-USD': 64200.00,
+            'AMZN': 186.40,
+            'MSFT': 448.90,
+            'GOOGL': 178.30,
+            'META': 502.10
+        };
+
+        function initAudioContext() {
+            if (!AppState.audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    AppState.audioCtx = new AudioContext();
+                }
+            }
+            if (AppState.audioCtx && AppState.audioCtx.state === 'suspended') {
+                AppState.audioCtx.resume();
+            }
+        }
+
+        function playAlertSound(type = 'GREEN') {
+            if (!AppState.audioEnabled) return;
+            try {
+                initAudioContext();
+                if (!AppState.audioCtx) return;
+
+                const ctx = AppState.audioCtx;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'GREEN') {
+                    // Upward Arpeggio Sound
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else {
+                    // Downward Alarm Warning Tone
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(440, now); // A4
+                    osc.frequency.linearRampToValueAtTime(220, now + 0.25); // A3
+                    gain.gain.setValueAtTime(0.35, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                }
+            } catch (err) {
+                console.warn('Audio playback error:', err);
+            }
+        }
+
+        function initializeStockData(symbol) {
+            const basePrice = BASE_PRICES[symbol] || (Math.random() * 200 + 10);
+            const history = [];
+            let current = basePrice;
+            
+            // Generate 25 historical sample points for chart & sparkline
+            for (let i = 0; i < 25; i++) {
+                const variation = (Math.random() - 0.49) * (basePrice * 0.008);
+                current = Math.max(1, current + variation);
+                history.push(current);
+            }
+
+            const openPrice = history[0];
+            const currentPrice = history[history.length - 1];
+            const highPrice = Math.max(...history);
+            const lowPrice = Math.min(...history);
+            const changePct = ((currentPrice - openPrice) / openPrice) * 100;
+
+            return {
+                symbol,
+                price: currentPrice,
+                prevPrice: currentPrice,
+                openPrice: openPrice,
+                high: highPrice,
+                low: lowPrice,
+                volume: Math.floor(Math.random() * 500000) + 100000,
+                changePct: changePct,
+                history: history,
+                lastUpdated: new Date()
+            };
+        }
+
+        function initMainChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            AppState.activeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(25).fill(''),
+                    datasets: [{
+                        label: 'Price',
+                        data: [],
+                        borderColor: '#00ff88',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.25,
+                        fill: true,
+                        backgroundColor: (context) => {
+                            const bgCtx = context.chart.ctx;
+                            const gradient = bgCtx.createLinearGradient(0, 0, 0, 200);
+                            gradient.addColorStop(0, 'rgba(0, 255, 136, 0.25)');
+                            gradient.addColorStop(1, 'rgba(0, 255, 136, 0.0)');
+                            return gradient;
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#94a3b8',
+                            bodyColor: '#38bdf8',
+                            bodyFont: { family: 'monospace' },
+                            callbacks: {
+                                label: (context) => ` $${context.raw.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: '#64748b',
+                                font: { family: 'monospace', size: 10 },
+                                callback: (val) => '$' + val.toFixed(2)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateMainChart(symbol) {
+            if (!AppState.stocksData[symbol] || !AppState.activeChart) return;
+
+            const stock = AppState.stocksData[symbol];
+            const isPositive = stock.changePct >= 0;
+            const strokeColor = isPositive ? '#00ff88' : '#ff3366';
+
+            document.getElementById('chartSymbol').textContent = stock.symbol;
+            document.getElementById('chartPrice').textContent = `$${stock.price.toFixed(2)}`;
+            document.getElementById('chartPrice').className = `font-mono text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-500'}`;
+            document.getElementById('statHigh').textContent = `$${stock.high.toFixed(2)}`;
+            document.getElementById('statLow').textContent = `$${stock.low.toFixed(2)}`;
+            document.getElementById('statVol').textContent = stock.volume > 1000000 ? (stock.volume/1000000).toFixed(2) + 'M' : (stock.volume/1000).toFixed(0) + 'K';
+
+            AppState.activeChart.data.datasets[0].data = stock.history;
+            AppState.activeChart.data.datasets[0].borderColor = strokeColor;
+            
+            const gradient = AppState.activeChart.ctx.createLinearGradient(0, 0, 0, 180);
+            gradient.addColorStop(0, isPositive ? 'rgba(0, 255, 136, 0.25)' : 'rgba(255, 51, 102, 0.25)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            AppState.activeChart.data.datasets[0].backgroundColor = gradient;
+
+            AppState.activeChart.update('none');
+        }
+
+        function generateSparklineSVG(history, isPositive) {
+            const width = 100;
+            const height = 30;
+            const min = Math.min(...history);
+            const max = Math.max(...history);
+            const range = (max - min) || 1;
+
+            const points = history.map((val, idx) => {
+                const x = (idx / (history.length - 1)) * width;
+                const y = height - ((val - min) / range) * (height - 6) - 3;
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ');
+
+            const color = isPositive ? '#00ff88' : '#ff3366';
+
+            return `
+                <svg width="100%" height="30" viewBox="0 0 ${width} ${height}" class="overflow-visible">
+                    <polyline fill="none" stroke="${color}" stroke-width="2" points="${points}" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            `;
+        }
+
+        function evaluateAlertRules(stock) {
+            AppState.alertRules.forEach(rule => {
+                if (rule.symbol !== stock.symbol) return;
+
+                let triggered = false;
+                let message = '';
+
+                if (rule.type === 'PRICE_ABOVE' && stock.price >= rule.threshold) {
+                    triggered = true;
+                    message = `${stock.symbol} surged above target threshold $${rule.threshold.toFixed(2)} (Current: $${stock.price.toFixed(2)})`;
+                } else if (rule.type === 'PRICE_BELOW' && stock.price <= rule.threshold) {
+                    triggered = true;
+                    message = `${stock.symbol} dropped below target threshold $${rule.threshold.toFixed(2)} (Current: $${stock.price.toFixed(2)})`;
+                } else if (rule.type === 'PCT_INCREASE_SESSION' && stock.changePct >= rule.threshold) {
+                    triggered = true;
+                    message = `${stock.symbol} gain of +${stock.changePct.toFixed(2)}% surpassed threshold +${rule.threshold}%`;
+                } else if (rule.type === 'PCT_DECREASE_SESSION' && stock.changePct <= -Math.abs(rule.threshold)) {
+                    triggered = true;
+                    message = `${stock.symbol} drop of ${stock.changePct.toFixed(2)}% crossed threshold -${rule.threshold}%`;
+                }
+
+                if (triggered) {
+                    triggerAlertEffects(rule, stock, message);
+                }
+            });
+        }
+
+        function triggerAlertEffects(rule, stock, message) {
+            const cardEl = document.getElementById(`stock-card-${stock.symbol}`);
+            if (cardEl) {
+                const animClass = rule.color === 'GREEN' ? 'animate-pulse-green' : 'animate-pulse-red';
+                cardEl.classList.add(animClass);
+                setTimeout(() => {
+                    cardEl.classList.remove(animClass);
+                }, 4000);
+            }
+
+            // Avoid duplicating identical recent logs within 10 seconds
+            const now = new Date();
+            const recentDuplicate = AppState.alertLogs.find(l => 
+                l.symbol === stock.symbol && 
+                l.ruleId === rule.id && 
+                (now - new Date(l.timestamp)) < 10000
+            );
+
+            if (!recentDuplicate) {
+                const logEntry = {
+                    id: Date.now().toString(),
+                    ruleId: rule.id,
+                    symbol: stock.symbol,
+                    message: message,
+                    color: rule.color,
+                    timestamp: now.toISOString()
+                };
+
+                AppState.alertLogs.unshift(logEntry);
+                if (AppState.alertLogs.length > 30) AppState.alertLogs.pop();
+
+                localStorage.setItem('pt_alertLogs', JSON.stringify(AppState.alertLogs));
+                renderAlertLogs();
+                showToastNotification(stock.symbol, message, rule.color);
+                playAlertSound(rule.color);
+            }
+        }
+
+        function showToastNotification(symbol, text, color) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const borderColor = color === 'GREEN' ? 'border-emerald-500' : 'border-rose-500';
+            const iconColor = color === 'GREEN' ? 'text-emerald-400' : 'text-rose-500';
+
+            toast.className = `glass-panel pointer-events-auto border-l-4 ${borderColor} rounded-xl p-3 shadow-2xl flex items-start gap-3 transform transition-all duration-300 translate-y-4 opacity-0`;
+            toast.innerHTML = `
+                <div class="${iconColor} text-lg pt-0.5"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono font-bold text-xs text-slate-200">${symbol} ALERT TRIGGERED</span>
+                        <span class="text-[10px] text-slate-500 font-mono">Just Now</span>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-0.5 font-mono">${text}</p>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+
+        function renderWatchlist() {
+            const grid = document.getElementById('watchlistGrid');
+            const emptyState = document.getElementById('emptyWatchlist');
+
+            document.getElementById('watchlistCount').textContent = AppState.watchlist.length;
+
+            if (AppState.watchlist.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            AppState.watchlist.forEach(symbol => {
+                let card = document.getElementById(`stock-card-${symbol}`);
+                const stock = AppState.stocksData[symbol];
+                if (!stock) return;
+
+                const isPositive = stock.changePct >= 0;
+                const bgPillClass = isPositive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20';
+
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = `stock-card-${symbol}`;
+                    card.className = `glass-panel rounded-2xl p-4 transition-all duration-300 cursor-pointer border hover:border-slate-700/90 relative group overflow-hidden ${symbol === AppState.selectedSymbol ? 'ring-1 ring-emerald-500/50 border-emerald-500/40' : 'border-slate-800/80'}`;
+                    card.onclick = () => selectSymbolForChart(symbol);
+
+                    grid.appendChild(card);
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-base text-slate-100 tracking-wide">${stock.symbol}</span>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${bgPillClass}">
+                                    ${isPositive ? '+' : ''}${stock.changePct.toFixed(2)}%
+                                </span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">Vol: ${(stock.volume/1000).toFixed(0)}k</span>
+                        </div>
+                        <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-600 hover:text-rose-400 transition p-1 text-xs opacity-0 group-hover:opacity-100">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 items-center my-1">
+                        <div>
+                            <span class="text-xl font-mono font-bold text-slate-100 tracking-tight">$${stock.price.toFixed(2)}</span>
+                            <span class="block text-[10px] text-slate-400 font-mono">Prev: $${stock.prevPrice.toFixed(2)}</span>
+                        </div>
+                        <div class="h-8">
+                            ${generateSparklineSVG(stock.history, isPositive)}
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono mt-2 pt-2 border-t border-slate-800/60">
+                        <span>H: $${stock.high.toFixed(2)}  L: $${stock.low.toFixed(2)}</span>
+                        <span class="text-[9px] text-slate-600">${new Date(stock.lastUpdated).toLocaleTimeString()}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function renderMarquee() {
+            const marquee = document.getElementById('tickerMarquee');
+            const items = AppState.watchlist.map(symbol => {
+                const stock = AppState.stocksData[symbol];
+                if (!stock) return '';
+                const isPositive = stock.changePct >= 0;
+                const color = isPositive ? 'text-emerald-400' : 'text-rose-500';
+                const arrow = isPositive ? '▲' : '▼';
+                return `
+                    <div class="inline-flex items-center gap-2 px-4 border-r border-slate-800/60 font-mono" onclick="selectSymbolForChart('${symbol}')">
+                        <span class="font-bold text-slate-300">${symbol}</span>
+                        <span class="text-slate-100">$${stock.price.toFixed(2)}</span>
+                        <span class="${color} text-[11px]">${arrow} ${Math.abs(stock.changePct).toFixed(2)}%</span>
+                    </div>
+                `;
+            }).join('');
+
+            marquee.innerHTML = items + items + items;
+        }
+
+        function renderAlertLogs() {
+            const feed = document.getElementById('alertLogFeed');
+            const lastTimeEl = document.getElementById('lastAlertTime');
+
+            if (AppState.alertLogs.length === 0) {
+                feed.innerHTML = `
+                    <div class="text-center py-10 text-slate-600">
+                        <i class="fa-solid fa-bell-slash text-2xl mb-2 block"></i>
+                        <span class="text-xs font-mono">No alerts triggered yet</span>
+                    </div>
+                `;
+                lastTimeEl.textContent = 'No recent alerts';
+                return;
+            }
+
+            lastTimeEl.textContent = `Last: ${new Date(AppState.alertLogs[0].timestamp).toLocaleTimeString()}`;
+
+            feed.innerHTML = AppState.alertLogs.map(log => {
+                const colorClass = log.color === 'GREEN' ? 'border-emerald-500/50 text-emerald-400' : 'border-rose-500/50 text-rose-400';
+                return `
+                    <div class="glass-panel p-2.5 rounded-xl border-l-2 ${colorClass} text-xs font-mono space-y-1">
+                        <div class="flex justify-between items-center text-slate-400 text-[10px]">
+                            <span class="font-bold text-slate-200">${log.symbol}</span>
+                            <span>${new Date(log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-tight">${log.message}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAlertRulesList() {
+            const rulesContainer = document.getElementById('alertRulesList');
+            document.getElementById('ruleCount').textContent = AppState.alertRules.length;
+
+            if (AppState.alertRules.length === 0) {
+                rulesContainer.innerHTML = `
+                    <div class="text-center py-10 text-slate-600">
+                        <i class="fa-solid fa-sliders text-2xl mb-2 block"></i>
+                        <span class="text-xs font-mono">No custom rules configured</span>
+                    </div>
+                `;
+                return;
+            }
+
+            rulesContainer.innerHTML = AppState.alertRules.map(rule => {
+                let ruleText = '';
+                if (rule.type === 'PRICE_ABOVE') ruleText = `Price Above $${rule.threshold}`;
+                else if (rule.type === 'PRICE_BELOW') ruleText = `Price Below $${rule.threshold}`;
+                else if (rule.type === 'PCT_INCREASE_SESSION') ruleText = `Spike > +${rule.threshold}%`;
+                else if (rule.type === 'PCT_DECREASE_SESSION') ruleText = `Drop > -${rule.threshold}%`;
+
+                return `
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center font-mono text-xs">
+                        <div>
+                            <span class="font-bold text-emerald-400 mr-2">${rule.symbol}</span>
+                            <span class="text-slate-300 text-[11px]">${ruleText}</span>
+                        </div>
+                        <button onclick="deleteAlertRule('${rule.id}')" class="text-slate-500 hover:text-rose-400 transition p-1">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function simulateMarketTick() {
+            AppState.watchlist.forEach(symbol => {
+                if (!AppState.stocksData[symbol]) {
+                    AppState.stocksData[symbol] = initializeStockData(symbol);
+                }
+
+                const stock = AppState.stocksData[symbol];
+                stock.prevPrice = stock.price;
+
+                // Brownian random walk variation (-0.8% to +0.8%)
+                const pctChange = (Math.random() - 0.49) * 0.012;
+                const delta = stock.price * pctChange;
+                stock.price = Math.max(0.01, stock.price + delta);
+
+                if (stock.price > stock.high) stock.high = stock.price;
+                if (stock.price < stock.low) stock.low = stock.price;
+
+                stock.history.push(stock.price);
+                if (stock.history.length > 25) stock.history.shift();
+
+                stock.volume += Math.floor(Math.random() * 850);
+                stock.changePct = ((stock.price - stock.openPrice) / stock.openPrice) * 100;
+                stock.lastUpdated = new Date();
+
+                // Evaluate Rules against new tick
+                evaluateAlertRules(stock);
+            });
+
+            renderWatchlist();
+            renderMarquee();
+            updateMainChart(AppState.selectedSymbol);
+        }
+
+        function startDataFeed() {
+            if (AppState.timerId) clearInterval(AppState.timerId);
+            if (AppState.ws) {
+                try { AppState.ws.close(); } catch(e){}
+                AppState.ws = null;
+            }
+
+            if (AppState.feedMode === 'MOCK' || !AppState.finnhubKey) {
+                document.getElementById('feedStatusText').textContent = 'Mock Stream Live';
+                AppState.timerId = setInterval(simulateMarketTick, AppState.refreshIntervalMs);
+            } else if (AppState.feedMode === 'FINNHUB_REST') {
+                document.getElementById('feedStatusText').textContent = 'Finnhub REST Live';
+                fetchFinnhubRestData();
+                AppState.timerId = setInterval(fetchFinnhubRestData, Math.max(2000, AppState.refreshIntervalMs));
+            } else {
+                document.getElementById('feedStatusText').textContent = 'Finnhub WS Connecting...';
+                try {
+                    AppState.ws = new WebSocket(`wss://ws.finnhub.io?token=${AppState.finnhubKey}`);
+
+                    AppState.ws.onopen = () => {
+                        document.getElementById('feedStatusText').textContent = 'Finnhub WS Live';
+                        AppState.watchlist.forEach(sym => {
+                            try {
+                                AppState.ws.send(JSON.stringify({ 'type': 'subscribe', 'symbol': sym }));
+                            } catch(e){}
+                        });
+                    };
+
+                    AppState.ws.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'trade') {
+                            data.data.forEach(trade => {
+                                const symbol = trade.s;
+                                if (AppState.stocksData[symbol]) {
+                                    const stock = AppState.stocksData[symbol];
+                                    stock.prevPrice = stock.price;
+                                    stock.price = trade.p;
+                                    stock.history.push(stock.price);
+                                    if (stock.history.length > 25) stock.history.shift();
+                                    stock.changePct = ((stock.price - stock.openPrice) / stock.openPrice) * 100;
+                                    evaluateAlertRules(stock);
+                                }
+                            });
+                            renderWatchlist();
+                            renderMarquee();
+                            updateMainChart(AppState.selectedSymbol);
+                        }
+                    };
+
+                    AppState.ws.onerror = (err) => {
+                        console.warn('WebSocket error or block detected. Falling back to Finnhub REST polling.', err);
+                        fallbackToRestPolling('Finnhub REST Live (WS Blocked)');
+                    };
+                } catch (e) {
+                    console.warn('WebSocket connection not allowed in this environment. Falling back to REST API polling.', e);
+                    fallbackToRestPolling('Finnhub REST Live (WS Disallowed)');
+                }
+            }
+        }
+
+        function fallbackToRestPolling(statusMsg = 'Finnhub REST Fallback') {
+            document.getElementById('feedStatusText').textContent = statusMsg;
+            if (AppState.ws) {
+                try { AppState.ws.close(); } catch(e){}
+                AppState.ws = null;
+            }
+            if (AppState.timerId) clearInterval(AppState.timerId);
+            fetchFinnhubRestData();
+            AppState.timerId = setInterval(fetchFinnhubRestData, Math.max(3000, AppState.refreshIntervalMs));
+        }
+
+        async function fetchFinnhubRestData() {
+            if (!AppState.finnhubKey || AppState.watchlist.length === 0) return;
+
+            let updatedAny = false;
+            for (const symbol of AppState.watchlist) {
+                try {
+                    const cleanSym = symbol.trim().toUpperCase();
+                    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(cleanSym)}&token=${encodeURIComponent(AppState.finnhubKey)}`;
+                    const res = await fetch(url);
+                    if (!res.ok) continue;
+                    const data = await res.json();
+
+                    if (data && typeof data.c === 'number' && data.c !== 0) {
+                        if (!AppState.stocksData[symbol]) {
+                            AppState.stocksData[symbol] = initializeStockData(symbol);
+                        }
+                        const stock = AppState.stocksData[symbol];
+                        stock.prevPrice = stock.price;
+                        stock.price = data.c;
+                        stock.openPrice = data.o || stock.openPrice;
+                        stock.high = data.h || Math.max(stock.high, stock.price);
+                        stock.low = data.l || Math.min(stock.low, stock.price);
+
+                        const refPrice = stock.openPrice || data.pc || stock.prevPrice;
+                        stock.changePct = refPrice ? ((stock.price - refPrice) / refPrice) * 100 : 0;
+
+                        stock.history.push(stock.price);
+                        if (stock.history.length > 25) stock.history.shift();
+
+                        stock.lastUpdated = new Date();
+                        evaluateAlertRules(stock);
+                        updatedAny = true;
+                    }
+                } catch (err) {
+                    console.warn(`Finnhub REST fetch error for ${symbol}:`, err);
+                }
+            }
+
+            if (updatedAny) {
+                renderWatchlist();
+                renderMarquee();
+                updateMainChart(AppState.selectedSymbol);
+            }
+        }
+
+        function selectSymbolForChart(symbol) {
+            AppState.selectedSymbol = symbol;
+            renderWatchlist();
+            updateMainChart(symbol);
+        }
+
+        function removeStockFromWatchlist(e, symbol) {
+            e.stopPropagation();
+            AppState.watchlist = AppState.watchlist.filter(s => s !== symbol);
+            delete AppState.stocksData[symbol];
+            localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
+            
+            if (AppState.selectedSymbol === symbol && AppState.watchlist.length > 0) {
+                AppState.selectedSymbol = AppState.watchlist[0];
+            }
+            
+            const cardEl = document.getElementById(`stock-card-${symbol}`);
+            if (cardEl) cardEl.remove();
+
+            renderWatchlist();
+            renderMarquee();
+            if (AppState.watchlist.length > 0) {
+                updateMainChart(AppState.selectedSymbol);
+            }
+        }
+
+        function addStockToWatchlist(symbol) {
+            const cleanSymbol = symbol.trim().toUpperCase();
+            if (!cleanSymbol) return;
+
+            if (!AppState.watchlist.includes(cleanSymbol)) {
+                AppState.watchlist.push(cleanSymbol);
+                AppState.stocksData[cleanSymbol] = initializeStockData(cleanSymbol);
+                localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
+
+                if (AppState.ws && AppState.ws.readyState === WebSocket.OPEN) {
+                    try {
+                        AppState.ws.send(JSON.stringify({ 'type': 'subscribe', 'symbol': cleanSymbol }));
+                    } catch(e){}
+                } else if (AppState.feedMode === 'FINNHUB_REST') {
+                    fetchFinnhubRestData();
+                }
+
+                selectSymbolForChart(cleanSymbol);
+                renderWatchlist();
+                renderMarquee();
+            }
+        }
+
+        function deleteAlertRule(ruleId) {
+            AppState.alertRules = AppState.alertRules.filter(r => r.id !== ruleId);
+            localStorage.setItem('pt_alertRules', JSON.stringify(AppState.alertRules));
+            renderAlertRulesList();
+        }
+
+        function populateModalTickers() {
+            const select = document.getElementById('modalTickerSelect');
+            select.innerHTML = AppState.watchlist.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Initialize Watchlist Stock Objects
+            AppState.watchlist.forEach(sym => {
+                AppState.stocksData[sym] = initializeStockData(sym);
+            });
+
+            // Init Visual Components
+            initMainChart();
+            renderWatchlist();
+            renderMarquee();
+            renderAlertLogs();
+            renderAlertRulesList();
+            startDataFeed();
+
+            // Form Submit: Add Stock
+            document.getElementById('addStockForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('tickerInput');
+                addStockToWatchlist(input.value);
+                input.value = '';
+            });
+
+            // Quick Add Chips
+            document.querySelectorAll('.quick-add').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    addStockToWatchlist(btn.textContent);
+                });
+            });
+
+            // Audio Toggle
+            const toggleAudio = () => {
+                AppState.audioEnabled = !AppState.audioEnabled;
+                const icon = document.getElementById('audioIcon');
+                const status = document.getElementById('audioStatusText');
+
+                if (AppState.audioEnabled) {
+                    icon.className = 'fa-solid fa-volume-high';
+                    status.textContent = 'Sound On';
+                    initAudioContext();
+                } else {
+                    icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                    status.textContent = 'Muted';
+                }
+            };
+            document.getElementById('audioToggleBtn').addEventListener('click', toggleAudio);
+            document.getElementById('mobileAudioToggle').addEventListener('click', toggleAudio);
+
+            // Test Alert Trigger Button
+            document.getElementById('triggerTestAlertBtn').addEventListener('click', () => {
+                const sym = AppState.selectedSymbol || 'NVDA';
+                if (!AppState.stocksData[sym]) return;
+                const dummyRule = { id: 'test', symbol: sym, color: 'GREEN' };
+                triggerAlertEffects(dummyRule, AppState.stocksData[sym], `[TEST ALERT] ${sym} simulated alert pulse triggered successfully!`);
+            });
+
+            // Modal Controls: Alert Creation Modal
+            const alertModal = document.getElementById('alertModal');
+            document.getElementById('openAlertModalBtn').addEventListener('click', () => {
+                populateModalTickers();
+                alertModal.classList.remove('hidden');
+            });
+            document.getElementById('closeAlertModalBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
+            document.getElementById('cancelRuleBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
+
+            // Condition Select Unit Updater
+            document.getElementById('modalConditionType').addEventListener('change', (e) => {
+                const unit = document.getElementById('thresholdUnit');
+                if (e.target.value.startsWith('PRICE')) {
+                    unit.textContent = '$';
+                } else {
+                    unit.textContent = '%';
+                }
+            });
+
+            // Form Submit: Create Alert Rule
+            document.getElementById('createRuleForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newRule = {
+                    id: Date.now().toString(),
+                    symbol: document.getElementById('modalTickerSelect').value,
+                    type: document.getElementById('modalConditionType').value,
+                    threshold: parseFloat(document.getElementById('modalThresholdValue').value),
+                    color: document.getElementById('modalFlashColor').value
+                };
+
+                AppState.alertRules.push(newRule);
+                localStorage.setItem('pt_alertRules', JSON.stringify(AppState.alertRules));
+                renderAlertRulesList();
+                alertModal.classList.add('hidden');
+                showToastNotification(newRule.symbol, 'New alert condition rule registered successfully', 'GREEN');
+            });
+
+            // Modal Controls: Settings Modal
+            const settingsModal = document.getElementById('settingsModal');
+            document.getElementById('settingsBtn').addEventListener('click', () => {
+                document.getElementById('feedModeSelect').value = AppState.feedMode;
+                document.getElementById('finnhubApiKeyInput').value = AppState.finnhubKey;
+                const finnhubBox = document.getElementById('finnhubKeyContainer');
+                if (AppState.feedMode.startsWith('FINNHUB')) {
+                    finnhubBox.classList.remove('hidden');
+                } else {
+                    finnhubBox.classList.add('hidden');
+                }
+                settingsModal.classList.remove('hidden');
+            });
+            document.getElementById('closeSettingsModalBtn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+            document.getElementById('feedModeSelect').addEventListener('change', (e) => {
+                const finnhubBox = document.getElementById('finnhubKeyContainer');
+                if (e.target.value.startsWith('FINNHUB')) {
+                    finnhubBox.classList.remove('hidden');
+                } else {
+                    finnhubBox.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+                AppState.feedMode = document.getElementById('feedModeSelect').value;
+                AppState.finnhubKey = document.getElementById('finnhubApiKeyInput').value;
+                AppState.refreshIntervalMs = parseInt(document.getElementById('refreshRateSelect').value);
+
+                localStorage.setItem('pt_feedMode', AppState.feedMode);
+                localStorage.setItem('pt_finnhubKey', AppState.finnhubKey);
+                localStorage.setItem('pt_refreshRate', AppState.refreshIntervalMs);
+
+                settingsModal.classList.add('hidden');
+                startDataFeed();
+            });
+
+            // Panel Tabs Switcher
+            const tabLogs = document.getElementById('tabAlertLogs');
+            const tabRules = document.getElementById('tabAlertRules');
+            const feedContainer = document.getElementById('alertLogFeed');
+            const rulesContainer = document.getElementById('alertRulesList');
+
+            tabLogs.addEventListener('click', () => {
+                tabLogs.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5';
+                tabRules.className = 'text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5';
+                feedContainer.classList.remove('hidden');
+                rulesContainer.classList.add('hidden');
+            });
+
+            tabRules.addEventListener('click', () => {
+                tabRules.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5';
+                tabLogs.className = 'text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5';
+                rulesContainer.classList.remove('hidden');
+                feedContainer.classList.add('hidden');
+            });
+
+            // Clear Log Feed
+            document.getElementById('clearLogsBtn').addEventListener('click', () => {
+                AppState.alertLogs = [];
+                localStorage.removeItem('pt_alertLogs');
+                renderAlertLogs();
+            });
+        });
+    </script>
+</body>
+</html>
