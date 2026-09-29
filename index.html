@@ -385,27 +385,108 @@
             'META': 502.10
         };
 
-        /**
-         * Calculates background RGB color for degree box indicator.
-         * Gradient range:
-         * <= -5% : Max Red rgb(255, 51, 102)
-         * 0%     : Light slate grey rgb(100, 116, 139)
-         * >= +5% : Max Green rgb(0, 255, 136)
-         */
-        function getDegreeShade(pct) {
-            const clampedPct = Math.max(-5, Math.min(5, pct));
-            if (clampedPct < 0) {
-                const t = clampedPct / -5; // 0 at 0%, 1 at -5%
-                const r = Math.round(100 + (255 - 100) * t);
-                const g = Math.round(116 + (51 - 116) * t);
-                const b = Math.round(139 + (102 - 139) * t);
-                return `rgb(${r}, ${g}, ${b})`;
+        function updateFeedBadge() {
+            const badgeText = document.getElementById('feedStatusText');
+            if (!badgeText) return;
+
+            if (AppState.feedMode === 'FINNHUB_REST') {
+                badgeText.textContent = AppState.finnhubKey ? 'Finnhub REST Live' : 'Finnhub (No Key)';
+            } else if (AppState.feedMode === 'FINNHUB') {
+                badgeText.textContent = AppState.finnhubKey ? 'Finnhub WS Stream' : 'Finnhub (No Key)';
             } else {
-                const t = clampedPct / 5; // 0 at 0%, 1 at +5%
-                const r = Math.round(100 + (0 - 100) * t);
-                const g = Math.round(116 + (255 - 116) * t);
-                const b = Math.round(139 + (136 - 139) * t);
-                return `rgb(${r}, ${g}, ${b})`;
+                badgeText.textContent = 'Mock Stream Live';
+            }
+        }
+
+        async function fetchFinnhubQuote(symbol) {
+            if (!AppState.finnhubKey) return;
+            try {
+                // Finnhub ticker format conversion for crypto/forex if needed
+                const cleanSym = symbol.replace('-USD', 'USD').toUpperCase();
+                const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${cleanSym}&token=${AppState.finnhubKey}`);
+                if (!res.ok) throw new Error('Finnhub response error');
+                const data = await res.json();
+                
+                // c = current, h = high, l = low, o = open, pc = previous close
+                if (data && data.c && data.c !== 0) {
+                    let stock = AppState.stocksData[symbol];
+                    if (!stock) {
+                        stock = initializeStockData(symbol);
+                        AppState.stocksData[symbol] = stock;
+                    }
+
+                    stock.prevPrice = stock.price;
+                    stock.price = data.c;
+                    stock.high = data.h || Math.max(stock.high, data.c);
+                    stock.low = data.l || Math.min(stock.low, data.c);
+                    stock.openPrice = data.pc || data.o || stock.openPrice;
+                    stock.changePct = ((data.c - stock.openPrice) / stock.openPrice) * 100;
+                    stock.history.push(data.c);
+                    if (stock.history.length > 30) stock.history.shift();
+
+                    evaluateAlertRules(stock);
+                }
+            } catch (err) {
+                console.warn(`Finnhub quote fetch error for ${symbol}:`, err);
+            }
+        }
+
+        function setupFinnhubWebSocket() {
+            if (AppState.ws) {
+                try { AppState.ws.close(); } catch(e) {}
+                AppState.ws = null;
+            }
+
+            if (AppState.feedMode !== 'FINNHUB' || !AppState.finnhubKey) return;
+
+            try {
+                const socket = new WebSocket(`wss://ws.finnhub.io?token=${AppState.finnhubKey}`);
+                AppState.ws = socket;
+
+                socket.addEventListener('open', () => {
+                    console.log('Finnhub WebSocket connected');
+                    AppState.watchlist.forEach(symbol => {
+                        const cleanSym = symbol.replace('-USD', 'USD').toUpperCase();
+                        socket.send(JSON.stringify({'type': 'subscribe', 'symbol': cleanSym}));
+                    });
+                });
+
+                socket.addEventListener('message', (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'trade' && data.data && data.data.length > 0) {
+                        data.data.forEach(trade => {
+                            const matchingSymbol = AppState.watchlist.find(s => 
+                                s.replace('-USD', 'USD').toUpperCase() === trade.s
+                            );
+                            if (matchingSymbol && trade.p) {
+                                const stock = AppState.stocksData[matchingSymbol];
+                                if (stock) {
+                                    stock.prevPrice = stock.price;
+                                    stock.price = trade.p;
+                                    stock.high = Math.max(stock.high, trade.p);
+                                    stock.low = Math.min(stock.low, trade.p);
+                                    stock.changePct = ((trade.p - stock.openPrice) / stock.openPrice) * 100;
+                                    stock.history.push(trade.p);
+                                    if (stock.history.length > 30) stock.history.shift();
+
+                                    evaluateAlertRules(stock);
+                                }
+                            }
+                        });
+                        renderWatchlist();
+                        renderMarquee();
+                    }
+                });
+
+                socket.addEventListener('error', (e) => {
+                    console.warn('WebSocket error, falling back to REST polling:', e);
+                    showToastNotification('FEED WARNING', 'WebSocket restricted in frame. Falling back to REST polling.', 'RED');
+                    AppState.feedMode = 'FINNHUB_REST';
+                    localStorage.setItem('pt_feedMode', 'FINNHUB_REST');
+                    updateFeedBadge();
+                });
+            } catch (err) {
+                console.warn('Could not initialize WebSocket:', err);
             }
         }
 
@@ -599,6 +680,27 @@
                 toast.classList.add('opacity-0', 'translate-y-2');
                 setTimeout(() => toast.remove(), 300);
             }, 4500);
+        }
+
+        function getDegreeShade(changePct) {
+            // Clamp value between -5% and +5%
+            const clamped = Math.max(-5, Math.min(5, changePct));
+            
+            if (clamped >= 0) {
+                const ratio = clamped / 5;
+                // Interpolate from neutral slate (#334155 / rgb(51, 65, 85)) to vibrant green (#00ff88 / rgb(0, 255, 136))
+                const r = Math.round(51 + (0 - 51) * ratio);
+                const g = Math.round(65 + (255 - 65) * ratio);
+                const b = Math.round(85 + (136 - 85) * ratio);
+                return `rgb(${r}, ${g}, ${b})`;
+            } else {
+                const ratio = Math.abs(clamped) / 5;
+                // Interpolate from neutral slate (#334155 / rgb(51, 65, 85)) to vibrant red (#ff3366 / rgb(255, 51, 102))
+                const r = Math.round(51 + (255 - 51) * ratio);
+                const g = Math.round(65 + (51 - 65) * ratio);
+                const b = Math.round(85 + (102 - 85) * ratio);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
         }
 
         function renderWatchlist() {
@@ -842,31 +944,48 @@
         }
 
         function updateStockPrices() {
-            AppState.watchlist.forEach(symbol => {
-                let stock = AppState.stocksData[symbol];
-                if (!stock) {
-                    stock = initializeStockData(symbol);
-                    AppState.stocksData[symbol] = stock;
-                }
+            if (AppState.feedMode === 'FINNHUB_REST' && AppState.finnhubKey) {
+                // Fetch real Finnhub quotes for each watched stock
+                AppState.watchlist.forEach(symbol => fetchFinnhubQuote(symbol));
+            } else if (AppState.feedMode === 'FINNHUB' && AppState.finnhubKey) {
+                // WebSocket manages stream in real-time
+                renderWatchlist();
+                renderMarquee();
+                return;
+            } else {
+                // Fallback / Mock Brownian Motion
+                AppState.watchlist.forEach(symbol => {
+                    let stock = AppState.stocksData[symbol];
+                    if (!stock) {
+                        stock = initializeStockData(symbol);
+                        AppState.stocksData[symbol] = stock;
+                    }
 
-                // Simulate sub-second price Brownian motion
-                const deltaPct = (Math.random() - 0.492) * 0.008; // Slight upward bias
-                const oldPrice = stock.price;
-                const newPrice = Math.max(0.1, oldPrice * (1 + deltaPct));
+                    // Simulate sub-second price Brownian motion
+                    const deltaPct = (Math.random() - 0.492) * 0.008; // Slight upward bias
+                    const oldPrice = stock.price;
+                    const newPrice = Math.max(0.1, oldPrice * (1 + deltaPct));
 
-                stock.prevPrice = oldPrice;
-                stock.price = newPrice;
-                stock.high = Math.max(stock.high, newPrice);
-                stock.low = Math.min(stock.low, newPrice);
-                stock.changePct = ((newPrice - stock.openPrice) / stock.openPrice) * 100;
-                stock.history.push(newPrice);
-                if (stock.history.length > 30) stock.history.shift();
+                    stock.prevPrice = oldPrice;
+                    stock.price = newPrice;
+                    stock.high = Math.max(stock.high, newPrice);
+                    stock.low = Math.min(stock.low, newPrice);
+                    stock.changePct = ((newPrice - stock.openPrice) / stock.openPrice) * 100;
+                    stock.history.push(newPrice);
+                    if (stock.history.length > 30) stock.history.shift();
 
-                evaluateAlertRules(stock);
-            });
+                    evaluateAlertRules(stock);
+                });
+            }
 
             renderWatchlist();
             renderMarquee();
+        }
+
+        function restartFeedTimer() {
+            if (AppState.timerId) clearInterval(AppState.timerId);
+            updateStockPrices();
+            AppState.timerId = setInterval(updateStockPrices, AppState.refreshIntervalMs);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -875,6 +994,7 @@
                 AppState.stocksData[sym] = initializeStockData(sym);
             });
 
+            updateFeedBadge();
             renderWatchlist();
             renderMarquee();
             renderAlertLogs();
@@ -926,6 +1046,10 @@
             // Modal Controls
             const alertModal = document.getElementById('alertModal');
             const settingsModal = document.getElementById('settingsModal');
+            const feedModeSelect = document.getElementById('feedModeSelect');
+            const finnhubKeyContainer = document.getElementById('finnhubKeyContainer');
+            const finnhubApiKeyInput = document.getElementById('finnhubApiKeyInput');
+            const refreshRateSelect = document.getElementById('refreshRateSelect');
 
             document.getElementById('openAlertModalBtn').addEventListener('click', () => {
                 populateModalTickerOptions();
@@ -935,8 +1059,62 @@
             document.getElementById('closeAlertModalBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
             document.getElementById('cancelRuleBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
 
-            document.getElementById('settingsBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
+            // Settings Modal Open & Controls
+            document.getElementById('settingsBtn').addEventListener('click', () => {
+                feedModeSelect.value = AppState.feedMode;
+                finnhubApiKeyInput.value = AppState.finnhubKey;
+                refreshRateSelect.value = AppState.refreshIntervalMs.toString();
+                
+                if (AppState.feedMode === 'MOCK') {
+                    finnhubKeyContainer.classList.add('hidden');
+                } else {
+                    finnhubKeyContainer.classList.remove('hidden');
+                }
+                settingsModal.classList.remove('hidden');
+            });
+
             document.getElementById('closeSettingsModalBtn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+            feedModeSelect.addEventListener('change', (e) => {
+                if (e.target.value === 'MOCK') {
+                    finnhubKeyContainer.classList.add('hidden');
+                } else {
+                    finnhubKeyContainer.classList.remove('hidden');
+                }
+            });
+
+            // Apply & Save Feed Settings Handler
+            document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+                const newMode = feedModeSelect.value;
+                const newKey = finnhubApiKeyInput.value.trim();
+                const newRate = parseInt(refreshRateSelect.value);
+
+                if ((newMode === 'FINNHUB_REST' || newMode === 'FINNHUB') && !newKey) {
+                    showToastNotification('API KEY REQUIRED', 'Please enter a valid Finnhub API key or select Mock Mode.', 'RED');
+                    return;
+                }
+
+                AppState.feedMode = newMode;
+                AppState.finnhubKey = newKey;
+                AppState.refreshIntervalMs = newRate;
+
+                localStorage.setItem('pt_feedMode', newMode);
+                localStorage.setItem('pt_finnhubKey', newKey);
+                localStorage.setItem('pt_refreshRate', newRate.toString());
+
+                updateFeedBadge();
+                settingsModal.classList.add('hidden');
+
+                if (newMode === 'FINNHUB') {
+                    setupFinnhubWebSocket();
+                } else if (AppState.ws) {
+                    try { AppState.ws.close(); } catch(e) {}
+                    AppState.ws = null;
+                }
+
+                restartFeedTimer();
+                showToastNotification('SETTINGS SAVED', `Data source updated to ${newMode === 'MOCK' ? 'Simulated Mock Feed' : 'Finnhub Live Data'}.`, 'GREEN');
+            });
 
             // Alert Rule Form Submission
             document.getElementById('createRuleForm').addEventListener('submit', (e) => {
@@ -1001,8 +1179,13 @@
                 }
             });
 
+            // Initial WebSocket setup if configured
+            if (AppState.feedMode === 'FINNHUB' && AppState.finnhubKey) {
+                setupFinnhubWebSocket();
+            }
+
             // Start Data Stream Timer Loop
-            AppState.timerId = setInterval(updateStockPrices, AppState.refreshIntervalMs);
+            restartFeedTimer();
         });
     </script>
 </body>
