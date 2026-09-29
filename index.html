@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hi Danny - Realtime Stock & Alert Terminal</title>
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -12,8 +13,8 @@
             theme: {
                 extend: {
                     colors: {
-                        darkBg: '#0b0f17',
-                        cardBg: 'rgba(18, 24, 38, 0.75)',
+                        darkBg: '#080b11',
+                        cardBg: 'rgba(15, 23, 42, 0.75)',
                         borderDark: '#1e293b',
                         neonGreen: '#00ff88',
                         neonRed: '#ff3366',
@@ -42,10 +43,12 @@
             }
         }
     </script>
+    
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -76,7 +79,6 @@
 </head>
 <body class="min-h-screen flex flex-col custom-scrollbar antialiased selection:bg-cyan-500 selection:text-white">
 
-    <!-- Top Live Ticker Marquee Bar -->
     <div class="bg-slate-950 border-b border-slate-800/80 text-xs py-2 overflow-hidden whitespace-nowrap flex items-center relative z-20">
         <div class="bg-emerald-500/10 border-r border-emerald-500/20 text-emerald-400 px-3 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 z-10 shadow-lg">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> LIVE TICKER
@@ -86,13 +88,12 @@
         </div>
     </div>
 
-    <!-- Main Navigation Bar -->
     <header class="glass-panel sticky top-0 z-30 border-b border-slate-800/80 px-4 lg:px-8 py-3">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
                 <div class="flex items-center gap-2">
                     <div class="p-2 bg-gradient-to-tr from-cyan-600 to-emerald-500 rounded-lg shadow-lg shadow-cyan-500/20">
-                        <i class="fa-solid me-0.5 fa-chart-line text-white text-lg"></i>
+                        <i class="fa-solid fa-chart-line text-white text-lg"></i>
                     </div>
                     <div>
                         <h1 class="font-black text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
@@ -131,7 +132,6 @@
         </div>
     </header>
 
-    <!-- Main Workspace Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
         
         <!-- Search & Control Toolbar -->
@@ -161,7 +161,7 @@
                     </div>
                 </div>
 
-                <!-- Alert Creator Button & Market Stats -->
+                <!-- Alert Creator Button & Controls -->
                 <div class="md:col-span-6 flex items-center justify-start md:justify-end gap-3 border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
                     <button id="openAlertModalBtn" class="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-bell-plus"></i> Set Custom Alert
@@ -173,10 +173,9 @@
             </div>
         </section>
 
-        <!-- Main Dashboard Split: Consolidated Single-Line Watchlist + Alert Logs -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Consolidated Watchlist Single-Line List View (8 Cols) -->
+            <!-- Watchlist Single-Line List View (8 Cols) -->
             <div class="lg:col-span-8 space-y-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
@@ -193,8 +192,8 @@
                     <div class="col-span-2">Ticker</div>
                     <div class="col-span-2 text-right">Price</div>
                     <div class="col-span-2 text-right">Change</div>
-                    <div class="col-span-2 text-right">High / Low</div>
-                    <div class="col-span-3 text-center">Degree Indicator</div>
+                    <div class="col-span-3 text-center">Day Range & 30m MA</div>
+                    <div class="col-span-2 text-center">Degree Indicator</div>
                     <div class="col-span-1 text-center">Action</div>
                 </div>
 
@@ -206,7 +205,7 @@
                 <!-- Empty State Banner -->
                 <div id="emptyWatchlist" class="hidden glass-panel rounded-2xl p-12 text-center border border-dashed border-slate-800">
                     <div class="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500 text-2xl">
-                        <i class="fa-solid fa-chart-line-down"></i>
+                        <i class="fa-solid fa-chart-line"></i>
                     </div>
                     <h3 class="text-slate-300 font-semibold text-base mb-1">Your Watchlist is Empty</h3>
                     <p class="text-slate-500 text-xs max-w-sm mx-auto mb-4">Add tickers above to monitor real-time prices, percentage changes, and trigger alerts.</p>
@@ -215,7 +214,6 @@
 
             <!-- Right Side: Alert Rules & Triggered Alerts Log (4 Cols) -->
             <div class="lg:col-span-4 space-y-6">
-                <!-- Alert Rules & Active Log Panel -->
                 <div class="glass-panel rounded-2xl p-4 lg:p-5 shadow-xl flex flex-col h-[520px]">
                     <!-- Panel Tabs -->
                     <div class="flex border-b border-slate-800 mb-3 pb-2 gap-4">
@@ -232,7 +230,7 @@
                         <!-- Dynamic Alert Logs -->
                     </div>
 
-                    <!-- Active Rules List Section (Hidden by default) -->
+                    <!-- Active Rules List Section -->
                     <div id="alertRulesList" class="hidden flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                         <!-- Dynamic Rules -->
                     </div>
@@ -245,14 +243,13 @@
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>
     </main>
 
     <!-- MODAL: Set Custom Alert Rule -->
     <div id="alertModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80 animate-in fade-in zoom-in duration-200">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-slate-100 text-lg flex items-center gap-2">
                     <i class="fa-solid fa-bell text-emerald-400"></i> Configure Alert Rule
@@ -626,6 +623,14 @@
                 const isPositive = stock.changePct >= 0;
                 const shadedBg = getDegreeShade(stock.changePct);
 
+                // Calculate 30-min Moving Average & Range positioning
+                const maVal = stock.history && stock.history.length > 0
+                    ? stock.history.reduce((sum, val) => sum + val, 0) / stock.history.length
+                    : stock.price;
+                const range = Math.max(stock.high - stock.low, 0.001);
+                const pricePct = Math.max(0, Math.min(100, ((stock.price - stock.low) / range) * 100));
+                const maPct = Math.max(0, Math.min(100, ((maVal - stock.low) / range) * 100));
+
                 if (!card) {
                     card = document.createElement('div');
                     card.id = `stock-card-${symbol}`;
@@ -653,14 +658,34 @@
                             </span>
                         </div>
 
-                        <!-- Session High / Low -->
-                        <div class="hidden sm:block sm:col-span-2 text-right text-[11px] text-slate-400">
-                            <div>H: $${stock.high.toFixed(2)}</div>
-                            <div>L: $${stock.low.toFixed(2)}</div>
+                        <!-- Session High / Low Range with 30-Min Moving Average Indicator Bar -->
+                        <div class="hidden sm:flex flex-col justify-center sm:col-span-3 px-1">
+                            <div class="relative w-full h-2 bg-slate-800/90 rounded-full border border-slate-700/50 my-1 overflow-visible">
+                                <!-- Momentum Highlight Bar (between MA and Current Price) -->
+                                <div class="absolute top-0 bottom-0 ${pricePct >= maPct ? 'bg-emerald-500/35' : 'bg-rose-500/35'} rounded-full transition-all duration-300"
+                                     style="left: ${Math.min(pricePct, maPct)}%; width: ${Math.max(2, Math.abs(pricePct - maPct))}%;"></div>
+                                
+                                <!-- 30-Min MA Marker (Amber Diamond Pip) -->
+                                <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-amber-400 rotate-45 border border-slate-950 shadow-sm z-10 transition-all duration-300"
+                                     style="left: ${maPct}%;"
+                                     title="30m Moving Average: $${maVal.toFixed(2)}"></div>
+
+                                <!-- Current Price Marker (Glowing Circle) -->
+                                <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 ${isPositive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.9)]'} border-2 border-slate-950 rounded-full z-20 transition-all duration-300"
+                                     style="left: ${pricePct}%;"
+                                     title="Current Price: $${stock.price.toFixed(2)}"></div>
+                            </div>
+                            
+                            <!-- Range Extreme Readouts & MA Display -->
+                            <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                                <span title="Session Low">L: $${stock.low.toFixed(2)}</span>
+                                <span class="text-amber-400/90 text-[9px] font-semibold" title="30-Minute Moving Average">MA $${maVal.toFixed(2)}</span>
+                                <span title="Session High">H: $${stock.high.toFixed(2)}</span>
+                            </div>
                         </div>
 
                         <!-- Shaded Color Box (Degree Indicator) -->
-                        <div class="col-span-10 sm:col-span-3">
+                        <div class="col-span-10 sm:col-span-2">
                             <div class="h-6 rounded-lg flex items-center justify-center font-bold text-[11px] text-slate-950 shadow-inner transition-all duration-300" 
                                  style="background-color: ${shadedBg}; shadow: 0 0 10px ${shadedBg};">
                                 <span class="bg-slate-950/40 text-slate-100 px-2 py-0.5 rounded backdrop-blur-sm">
@@ -671,7 +696,7 @@
 
                         <!-- Action -->
                         <div class="col-span-2 sm:col-span-1 text-center">
-                            <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-500 hover:text-rose-400 transition p-1">
+                            <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-500 hover:text-rose-400 transition p-1" title="Remove Ticker">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
@@ -682,240 +707,118 @@
 
         function renderMarquee() {
             const marquee = document.getElementById('tickerMarquee');
-            const items = AppState.watchlist.map(symbol => {
-                const stock = AppState.stocksData[symbol];
+            if (!marquee) return;
+
+            const items = AppState.watchlist.map(sym => {
+                const stock = AppState.stocksData[sym];
                 if (!stock) return '';
-                const isPositive = stock.changePct >= 0;
-                const color = isPositive ? 'text-emerald-400' : 'text-rose-500';
-                const arrow = isPositive ? '▲' : '▼';
+                const isPos = stock.changePct >= 0;
                 return `
-                    <div class="inline-flex items-center gap-2 px-4 border-r border-slate-800/60 font-mono cursor-pointer">
-                        <span class="font-bold text-slate-300">${symbol}</span>
-                        <span class="text-slate-100">$${stock.price.toFixed(2)}</span>
-                        <span class="${color} text-[11px]">${arrow} ${Math.abs(stock.changePct).toFixed(2)}%</span>
+                    <div class="inline-flex items-center gap-2 px-6 border-r border-slate-800 font-mono">
+                        <span class="font-bold text-slate-200">${sym}</span>
+                        <span class="text-slate-300">$${stock.price.toFixed(2)}</span>
+                        <span class="${isPos ? 'text-emerald-400' : 'text-rose-400'} text-[11px]">
+                            ${isPos ? '▲' : '▼'} ${Math.abs(stock.changePct).toFixed(2)}%
+                        </span>
                     </div>
                 `;
             }).join('');
 
-            marquee.innerHTML = items + items + items;
+            // Duplicate items to ensure seamless infinite looping animation
+            marquee.innerHTML = items + items;
         }
 
         function renderAlertLogs() {
             const feed = document.getElementById('alertLogFeed');
-            const lastTimeEl = document.getElementById('lastAlertTime');
+            if (!feed) return;
 
             if (AppState.alertLogs.length === 0) {
                 feed.innerHTML = `
-                    <div class="text-center py-10 text-slate-600">
-                        <i class="fa-solid fa-bell-slash text-2xl mb-2 block"></i>
-                        <span class="text-xs font-mono">No alerts triggered yet</span>
+                    <div class="text-center py-10 text-slate-500 font-mono text-xs">
+                        <i class="fa-solid fa-bell-slash text-2xl mb-2 block text-slate-600"></i>
+                        No triggered alerts yet.
                     </div>
                 `;
-                lastTimeEl.textContent = 'No recent alerts';
                 return;
             }
-
-            lastTimeEl.textContent = `Last: ${new Date(AppState.alertLogs[0].timestamp).toLocaleTimeString()}`;
 
             feed.innerHTML = AppState.alertLogs.map(log => {
-                const colorClass = log.color === 'GREEN' ? 'border-emerald-500/50 text-emerald-400' : 'border-rose-500/50 text-rose-400';
+                const isGreen = log.color === 'GREEN';
+                const icon = isGreen ? 'fa-arrow-trend-up text-emerald-400' : 'fa-arrow-trend-down text-rose-400';
+                const border = isGreen ? 'border-emerald-500/30' : 'border-rose-500/30';
+                const dateStr = new Date(log.timestamp).toLocaleTimeString();
+
                 return `
-                    <div class="glass-panel p-2.5 rounded-xl border-l-2 ${colorClass} text-xs font-mono space-y-1">
-                        <div class="flex justify-between items-center text-slate-400 text-[10px]">
-                            <span class="font-bold text-slate-200">${log.symbol}</span>
-                            <span>${new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <div class="p-2.5 rounded-xl bg-slate-900/80 border ${border} text-xs font-mono">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+                                <i class="fa-solid ${icon}"></i> ${log.symbol}
+                            </span>
+                            <span class="text-[10px] text-slate-500">${dateStr}</span>
                         </div>
-                        <p class="text-slate-300 text-[11px] leading-tight">${log.message}</p>
+                        <p class="text-slate-300 text-[11px]">${log.message}</p>
                     </div>
                 `;
             }).join('');
+
+            if (AppState.alertLogs.length > 0) {
+                document.getElementById('lastAlertTime').textContent = `Last: ${new Date(AppState.alertLogs[0].timestamp).toLocaleTimeString()}`;
+            }
         }
 
-        function renderAlertRulesList() {
-            const rulesContainer = document.getElementById('alertRulesList');
-            document.getElementById('ruleCount').textContent = AppState.alertRules.length;
+        function renderAlertRules() {
+            const list = document.getElementById('alertRulesList');
+            const countEl = document.getElementById('ruleCount');
+            if (!list) return;
+
+            countEl.textContent = AppState.alertRules.length;
 
             if (AppState.alertRules.length === 0) {
-                rulesContainer.innerHTML = `
-                    <div class="text-center py-10 text-slate-600">
-                        <i class="fa-solid fa-sliders text-2xl mb-2 block"></i>
-                        <span class="text-xs font-mono">No custom rules configured</span>
+                list.innerHTML = `
+                    <div class="text-center py-10 text-slate-500 font-mono text-xs">
+                        No active rules configured.
                     </div>
                 `;
                 return;
             }
 
-            rulesContainer.innerHTML = AppState.alertRules.map(rule => {
-                let ruleText = '';
-                if (rule.type === 'PRICE_ABOVE') ruleText = `Price Above $${rule.threshold}`;
-                else if (rule.type === 'PRICE_BELOW') ruleText = `Price Below $${rule.threshold}`;
-                else if (rule.type === 'PCT_INCREASE_SESSION') ruleText = `Spike > +${rule.threshold}%`;
-                else if (rule.type === 'PCT_DECREASE_SESSION') ruleText = `Drop > -${rule.threshold}%`;
-
-                return `
-                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center font-mono text-xs">
-                        <div>
-                            <span class="font-bold text-emerald-400 mr-2">${rule.symbol}</span>
-                            <span class="text-slate-300 text-[11px]">${ruleText}</span>
+            list.innerHTML = AppState.alertRules.map(rule => `
+                <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full ${rule.color === 'GREEN' ? 'bg-emerald-400' : 'bg-rose-400'}"></span>
+                            ${rule.symbol}
                         </div>
-                        <button onclick="deleteAlertRule('${rule.id}')" class="text-slate-500 hover:text-rose-400 transition p-1">
-                            <i class="fa-solid fa-trash text-xs"></i>
-                        </button>
+                        <p class="text-[11px] text-slate-400 mt-0.5">${rule.type.replace(/_/g, ' ')}: ${rule.threshold}</p>
                     </div>
-                `;
-            }).join('');
+                    <button onclick="removeAlertRule('${rule.id}')" class="text-slate-500 hover:text-rose-400 p-1">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `).join('');
         }
 
-        function simulateMarketTick() {
-            AppState.watchlist.forEach(symbol => {
-                if (!AppState.stocksData[symbol]) {
-                    AppState.stocksData[symbol] = initializeStockData(symbol);
-                }
+        function addStockToWatchlist(symbol) {
+            const cleanSym = symbol.trim().toUpperCase();
+            if (!cleanSym) return;
 
-                const stock = AppState.stocksData[symbol];
-                stock.prevPrice = stock.price;
+            if (!AppState.watchlist.includes(cleanSym)) {
+                AppState.watchlist.push(cleanSym);
+                localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
+            }
 
-                // Brownian random walk variation (-0.8% to +0.8%)
-                const pctChange = (Math.random() - 0.49) * 0.012;
-                const delta = stock.price * pctChange;
-                stock.price = Math.max(0.01, stock.price + delta);
-
-                if (stock.price > stock.high) stock.high = stock.price;
-                if (stock.price < stock.low) stock.low = stock.price;
-
-                stock.history.push(stock.price);
-                if (stock.history.length > 25) stock.history.shift();
-
-                stock.volume += Math.floor(Math.random() * 850);
-                stock.changePct = ((stock.price - stock.openPrice) / stock.openPrice) * 100;
-                stock.lastUpdated = new Date();
-
-                // Evaluate Rules against new tick
-                evaluateAlertRules(stock);
-            });
+            if (!AppState.stocksData[cleanSym]) {
+                AppState.stocksData[cleanSym] = initializeStockData(cleanSym);
+            }
 
             renderWatchlist();
             renderMarquee();
+            populateModalTickerOptions();
         }
 
-        function startDataFeed() {
-            if (AppState.timerId) clearInterval(AppState.timerId);
-            if (AppState.ws) {
-                try { AppState.ws.close(); } catch(e){}
-                AppState.ws = null;
-            }
-
-            if (AppState.feedMode === 'MOCK' || !AppState.finnhubKey) {
-                document.getElementById('feedStatusText').textContent = 'Mock Stream Live';
-                AppState.timerId = setInterval(simulateMarketTick, AppState.refreshIntervalMs);
-            } else if (AppState.feedMode === 'FINNHUB_REST') {
-                document.getElementById('feedStatusText').textContent = 'Finnhub REST Live';
-                fetchFinnhubRestData();
-                AppState.timerId = setInterval(fetchFinnhubRestData, Math.max(2000, AppState.refreshIntervalMs));
-            } else {
-                document.getElementById('feedStatusText').textContent = 'Finnhub WS Connecting...';
-                try {
-                    AppState.ws = new WebSocket(`wss://ws.finnhub.io?token=${AppState.finnhubKey}`);
-
-                    AppState.ws.onopen = () => {
-                        document.getElementById('feedStatusText').textContent = 'Finnhub WS Live';
-                        AppState.watchlist.forEach(sym => {
-                            try {
-                                AppState.ws.send(JSON.stringify({ 'type': 'subscribe', 'symbol': sym }));
-                            } catch(e){}
-                        });
-                    };
-
-                    AppState.ws.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'trade') {
-                            data.data.forEach(trade => {
-                                const symbol = trade.s;
-                                if (AppState.stocksData[symbol]) {
-                                    const stock = AppState.stocksData[symbol];
-                                    stock.prevPrice = stock.price;
-                                    stock.price = trade.p;
-                                    stock.history.push(stock.price);
-                                    if (stock.history.length > 25) stock.history.shift();
-                                    stock.changePct = ((stock.price - stock.openPrice) / stock.openPrice) * 100;
-                                    evaluateAlertRules(stock);
-                                }
-                            });
-                            renderWatchlist();
-                            renderMarquee();
-                        }
-                    };
-
-                    AppState.ws.onerror = (err) => {
-                        console.warn('WebSocket error or block detected. Falling back to Finnhub REST polling.', err);
-                        fallbackToRestPolling('Finnhub REST Live (WS Blocked)');
-                    };
-                } catch (e) {
-                    console.warn('WebSocket connection not allowed in this environment. Falling back to REST API polling.', e);
-                    fallbackToRestPolling('Finnhub REST Live (WS Disallowed)');
-                }
-            }
-        }
-
-        function fallbackToRestPolling(statusMsg = 'Finnhub REST Fallback') {
-            document.getElementById('feedStatusText').textContent = statusMsg;
-            if (AppState.ws) {
-                try { AppState.ws.close(); } catch(e){}
-                AppState.ws = null;
-            }
-            if (AppState.timerId) clearInterval(AppState.timerId);
-            fetchFinnhubRestData();
-            AppState.timerId = setInterval(fetchFinnhubRestData, Math.max(3000, AppState.refreshIntervalMs));
-        }
-
-        async function fetchFinnhubRestData() {
-            if (!AppState.finnhubKey || AppState.watchlist.length === 0) return;
-
-            let updatedAny = false;
-            for (const symbol of AppState.watchlist) {
-                try {
-                    const cleanSym = symbol.trim().toUpperCase();
-                    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(cleanSym)}&token=${encodeURIComponent(AppState.finnhubKey)}`;
-                    const res = await fetch(url);
-                    if (!res.ok) continue;
-                    const data = await res.json();
-
-                    if (data && typeof data.c === 'number' && data.c !== 0) {
-                        if (!AppState.stocksData[symbol]) {
-                            AppState.stocksData[symbol] = initializeStockData(symbol);
-                        }
-                        const stock = AppState.stocksData[symbol];
-                        stock.prevPrice = stock.price;
-                        stock.price = data.c;
-                        stock.openPrice = data.o || stock.openPrice;
-                        stock.high = data.h || Math.max(stock.high, stock.price);
-                        stock.low = data.l || Math.min(stock.low, stock.price);
-
-                        const refPrice = stock.openPrice || data.pc || stock.prevPrice;
-                        stock.changePct = refPrice ? ((stock.price - refPrice) / refPrice) * 100 : 0;
-
-                        stock.history.push(stock.price);
-                        if (stock.history.length > 25) stock.history.shift();
-
-                        stock.lastUpdated = new Date();
-                        evaluateAlertRules(stock);
-                        updatedAny = true;
-                    }
-                } catch (err) {
-                    console.warn(`Finnhub REST fetch error for ${symbol}:`, err);
-                }
-            }
-
-            if (updatedAny) {
-                renderWatchlist();
-                renderMarquee();
-            }
-        }
-
-        function removeStockFromWatchlist(e, symbol) {
-            e.stopPropagation();
+        function removeStockFromWatchlist(event, symbol) {
+            if (event) event.stopPropagation();
             AppState.watchlist = AppState.watchlist.filter(s => s !== symbol);
-            delete AppState.stocksData[symbol];
             localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
             
             const cardEl = document.getElementById(`stock-card-${symbol}`);
@@ -923,56 +826,62 @@
 
             renderWatchlist();
             renderMarquee();
+            populateModalTickerOptions();
         }
 
-        function addStockToWatchlist(symbol) {
-            const cleanSymbol = symbol.trim().toUpperCase();
-            if (!cleanSymbol) return;
-
-            if (!AppState.watchlist.includes(cleanSymbol)) {
-                AppState.watchlist.push(cleanSymbol);
-                AppState.stocksData[cleanSymbol] = initializeStockData(cleanSymbol);
-                localStorage.setItem('pt_watchlist', JSON.stringify(AppState.watchlist));
-
-                if (AppState.ws && AppState.ws.readyState === WebSocket.OPEN) {
-                    try {
-                        AppState.ws.send(JSON.stringify({ 'type': 'subscribe', 'symbol': cleanSymbol }));
-                    } catch(e){}
-                } else if (AppState.feedMode === 'FINNHUB_REST') {
-                    fetchFinnhubRestData();
-                }
-
-                renderWatchlist();
-                renderMarquee();
-            }
-        }
-
-        function deleteAlertRule(ruleId) {
+        function removeAlertRule(ruleId) {
             AppState.alertRules = AppState.alertRules.filter(r => r.id !== ruleId);
             localStorage.setItem('pt_alertRules', JSON.stringify(AppState.alertRules));
-            renderAlertRulesList();
+            renderAlertRules();
         }
 
-        function populateModalTickers() {
+        function populateModalTickerOptions() {
             const select = document.getElementById('modalTickerSelect');
-            select.innerHTML = AppState.watchlist.map(s => `<option value="${s}">${s}</option>`).join('');
+            if (!select) return;
+            select.innerHTML = AppState.watchlist.map(sym => `<option value="${sym}">${sym}</option>`).join('');
+        }
+
+        function updateStockPrices() {
+            AppState.watchlist.forEach(symbol => {
+                let stock = AppState.stocksData[symbol];
+                if (!stock) {
+                    stock = initializeStockData(symbol);
+                    AppState.stocksData[symbol] = stock;
+                }
+
+                // Simulate sub-second price Brownian motion
+                const deltaPct = (Math.random() - 0.492) * 0.008; // Slight upward bias
+                const oldPrice = stock.price;
+                const newPrice = Math.max(0.1, oldPrice * (1 + deltaPct));
+
+                stock.prevPrice = oldPrice;
+                stock.price = newPrice;
+                stock.high = Math.max(stock.high, newPrice);
+                stock.low = Math.min(stock.low, newPrice);
+                stock.changePct = ((newPrice - stock.openPrice) / stock.openPrice) * 100;
+                stock.history.push(newPrice);
+                if (stock.history.length > 30) stock.history.shift();
+
+                evaluateAlertRules(stock);
+            });
+
+            renderWatchlist();
+            renderMarquee();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // Initialize Watchlist Stock Objects
+            // Initialize stock state for default watchlist
             AppState.watchlist.forEach(sym => {
                 AppState.stocksData[sym] = initializeStockData(sym);
             });
 
-            // Init Visual Components
             renderWatchlist();
             renderMarquee();
             renderAlertLogs();
-            renderAlertRulesList();
-            startDataFeed();
+            renderAlertRules();
+            populateModalTickerOptions();
 
-            // Form Submit: Add Stock
+            // Form Submit: Add Ticker
             document.getElementById('addStockForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const input = document.getElementById('tickerInput');
@@ -980,139 +889,120 @@
                 input.value = '';
             });
 
-            // Quick Add Chips
+            // Quick Add Buttons
             document.querySelectorAll('.quick-add').forEach(btn => {
                 btn.addEventListener('click', () => {
                     addStockToWatchlist(btn.textContent);
                 });
             });
 
-            // Audio Toggle
-            const toggleAudio = () => {
-                AppState.audioEnabled = !AppState.audioEnabled;
-                const icon = document.getElementById('audioIcon');
-                const status = document.getElementById('audioStatusText');
-
-                if (AppState.audioEnabled) {
-                    icon.className = 'fa-solid fa-volume-high';
-                    status.textContent = 'Sound On';
-                    initAudioContext();
-                } else {
-                    icon.className = 'fa-solid fa-volume-xmark text-slate-500';
-                    status.textContent = 'Muted';
-                }
-            };
-            document.getElementById('audioToggleBtn').addEventListener('click', toggleAudio);
-            document.getElementById('mobileAudioToggle').addEventListener('click', toggleAudio);
-
-            // Test Alert Trigger Button
-            document.getElementById('triggerTestAlertBtn').addEventListener('click', () => {
-                const sym = AppState.watchlist[0] || 'NVDA';
-                if (!AppState.stocksData[sym]) return;
-                const dummyRule = { id: 'test', symbol: sym, color: 'GREEN' };
-                triggerAlertEffects(dummyRule, AppState.stocksData[sym], `[TEST ALERT] ${sym} simulated alert pulse triggered successfully!`);
-            });
-
-            // Modal Controls: Alert Creation Modal
-            const alertModal = document.getElementById('alertModal');
-            document.getElementById('openAlertModalBtn').addEventListener('click', () => {
-                populateModalTickers();
-                alertModal.classList.remove('hidden');
-            });
-            document.getElementById('closeAlertModalBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
-            document.getElementById('cancelRuleBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
-
-            // Condition Select Unit Updater
-            document.getElementById('modalConditionType').addEventListener('change', (e) => {
-                const unit = document.getElementById('thresholdUnit');
-                if (e.target.value.startsWith('PRICE')) {
-                    unit.textContent = '$';
-                } else {
-                    unit.textContent = '%';
-                }
-            });
-
-            // Form Submit: Create Alert Rule
-            document.getElementById('createRuleForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const newRule = {
-                    id: Date.now().toString(),
-                    symbol: document.getElementById('modalTickerSelect').value,
-                    type: document.getElementById('modalConditionType').value,
-                    threshold: parseFloat(document.getElementById('modalThresholdValue').value),
-                    color: document.getElementById('modalFlashColor').value
-                };
-
-                AppState.alertRules.push(newRule);
-                localStorage.setItem('pt_alertRules', JSON.stringify(AppState.alertRules));
-                renderAlertRulesList();
-                alertModal.classList.add('hidden');
-                showToastNotification(newRule.symbol, 'New alert condition rule registered successfully', 'GREEN');
-            });
-
-            // Modal Controls: Settings Modal
-            const settingsModal = document.getElementById('settingsModal');
-            document.getElementById('settingsBtn').addEventListener('click', () => {
-                document.getElementById('feedModeSelect').value = AppState.feedMode;
-                document.getElementById('finnhubApiKeyInput').value = AppState.finnhubKey;
-                const finnhubBox = document.getElementById('finnhubKeyContainer');
-                if (AppState.feedMode.startsWith('FINNHUB')) {
-                    finnhubBox.classList.remove('hidden');
-                } else {
-                    finnhubBox.classList.add('hidden');
-                }
-                settingsModal.classList.remove('hidden');
-            });
-            document.getElementById('closeSettingsModalBtn').addEventListener('click', () => settingsModal.classList.add('hidden'));
-
-            document.getElementById('feedModeSelect').addEventListener('change', (e) => {
-                const finnhubBox = document.getElementById('finnhubKeyContainer');
-                if (e.target.value.startsWith('FINNHUB')) {
-                    finnhubBox.classList.remove('hidden');
-                } else {
-                    finnhubBox.classList.add('hidden');
-                }
-            });
-
-            document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-                AppState.feedMode = document.getElementById('feedModeSelect').value;
-                AppState.finnhubKey = document.getElementById('finnhubApiKeyInput').value;
-                AppState.refreshIntervalMs = parseInt(document.getElementById('refreshRateSelect').value);
-
-                localStorage.setItem('pt_feedMode', AppState.feedMode);
-                localStorage.setItem('pt_finnhubKey', AppState.finnhubKey);
-                localStorage.setItem('pt_refreshRate', AppState.refreshIntervalMs);
-
-                settingsModal.classList.add('hidden');
-                startDataFeed();
-            });
-
-            // Panel Tabs Switcher
+            // Tab Controls
             const tabLogs = document.getElementById('tabAlertLogs');
             const tabRules = document.getElementById('tabAlertRules');
-            const feedContainer = document.getElementById('alertLogFeed');
-            const rulesContainer = document.getElementById('alertRulesList');
+            const feedLogs = document.getElementById('alertLogFeed');
+            const listRules = document.getElementById('alertRulesList');
 
             tabLogs.addEventListener('click', () => {
-                tabLogs.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5';
-                tabRules.className = 'text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5';
-                feedContainer.classList.remove('hidden');
-                rulesContainer.classList.add('hidden');
+                tabLogs.className = "text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5";
+                tabRules.className = "text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5";
+                feedLogs.classList.remove('hidden');
+                listRules.classList.add('hidden');
             });
 
             tabRules.addEventListener('click', () => {
-                tabRules.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5';
-                tabLogs.className = 'text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5';
-                rulesContainer.classList.remove('hidden');
-                feedContainer.classList.add('hidden');
+                tabRules.className = "text-sm font-bold text-emerald-400 border-b-2 border-emerald-400 pb-1 flex items-center gap-1.5";
+                tabLogs.className = "text-sm font-bold text-slate-400 hover:text-slate-200 pb-1 flex items-center gap-1.5";
+                listRules.classList.remove('hidden');
+                feedLogs.classList.add('hidden');
             });
 
-            // Clear Log Feed
+            // Clear Logs Button
             document.getElementById('clearLogsBtn').addEventListener('click', () => {
                 AppState.alertLogs = [];
                 localStorage.removeItem('pt_alertLogs');
                 renderAlertLogs();
             });
+
+            // Modal Controls
+            const alertModal = document.getElementById('alertModal');
+            const settingsModal = document.getElementById('settingsModal');
+
+            document.getElementById('openAlertModalBtn').addEventListener('click', () => {
+                populateModalTickerOptions();
+                alertModal.classList.remove('hidden');
+            });
+
+            document.getElementById('closeAlertModalBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
+            document.getElementById('cancelRuleBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
+
+            document.getElementById('settingsBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
+            document.getElementById('closeSettingsModalBtn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+            // Alert Rule Form Submission
+            document.getElementById('createRuleForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const symbol = document.getElementById('modalTickerSelect').value;
+                const type = document.getElementById('modalConditionType').value;
+                const threshold = parseFloat(document.getElementById('modalThresholdValue').value);
+                const color = document.getElementById('modalFlashColor').value;
+
+                if (!symbol || isNaN(threshold)) return;
+
+                const newRule = {
+                    id: Date.now().toString(),
+                    symbol,
+                    type,
+                    threshold,
+                    color
+                };
+
+                AppState.alertRules.push(newRule);
+                localStorage.setItem('pt_alertRules', JSON.stringify(AppState.alertRules));
+                renderAlertRules();
+
+                alertModal.classList.add('hidden');
+                document.getElementById('modalThresholdValue').value = '';
+
+                showToastNotification(symbol, `Created new alert rule for ${symbol}`, color);
+            });
+
+            // Audio Toggle Buttons
+            const audioBtn = document.getElementById('audioToggleBtn');
+            const mobileAudioBtn = document.getElementById('mobileAudioToggle');
+
+            function toggleAudio() {
+                initAudioContext();
+                AppState.audioEnabled = !AppState.audioEnabled;
+                const icon = document.getElementById('audioIcon');
+                const text = document.getElementById('audioStatusText');
+
+                if (AppState.audioEnabled) {
+                    icon.className = "fa-solid fa-volume-high";
+                    text.textContent = "Sound On";
+                    audioBtn.className = "px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5";
+                } else {
+                    icon.className = "fa-solid fa-volume-xmark";
+                    text.textContent = "Sound Off";
+                    audioBtn.className = "px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-lg text-xs font-medium transition flex items-center gap-1.5";
+                }
+            }
+
+            audioBtn.addEventListener('click', toggleAudio);
+            mobileAudioBtn.addEventListener('click', toggleAudio);
+
+            // Test Alert Button
+            document.getElementById('triggerTestAlertBtn').addEventListener('click', () => {
+                if (AppState.watchlist.length === 0) return;
+                const testSymbol = AppState.watchlist[0];
+                const stock = AppState.stocksData[testSymbol];
+                if (stock) {
+                    const mockRule = { id: 'test', color: 'GREEN' };
+                    triggerAlertEffects(mockRule, stock, `TEST ALERT: Simulated volume spike detected on ${testSymbol}`);
+                }
+            });
+
+            // Start Data Stream Timer Loop
+            AppState.timerId = setInterval(updateStockPrices, AppState.refreshIntervalMs);
         });
     </script>
 </body>
