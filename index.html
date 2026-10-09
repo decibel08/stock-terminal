@@ -190,10 +190,9 @@
                 <!-- Watchlist Table Header -->
                 <div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-mono text-slate-400 uppercase tracking-wider border-b border-slate-800">
                     <div class="col-span-2">Ticker</div>
-                    <div class="col-span-2 text-right">Price</div>
-                    <div class="col-span-2 text-right">Change</div>
-                    <div class="col-span-3 text-center">Day Range & 30m MA</div>
-                    <div class="col-span-2 text-center">Degree Indicator</div>
+                    <div class="col-span-2 text-left">Price</div>
+                    <div class="col-span-4 text-center">Day Range & 1h MA</div>
+                    <div class="col-span-3 text-center">Degree Indicator</div>
                     <div class="col-span-1 text-center">Action</div>
                 </div>
 
@@ -422,7 +421,7 @@
                     stock.openPrice = data.pc || data.o || stock.openPrice;
                     stock.changePct = ((data.c - stock.openPrice) / stock.openPrice) * 100;
                     stock.history.push(data.c);
-                    if (stock.history.length > 30) stock.history.shift();
+                    if (stock.history.length > 60) stock.history.shift();
 
                     evaluateAlertRules(stock);
                 }
@@ -467,7 +466,7 @@
                                     stock.low = Math.min(stock.low, trade.p);
                                     stock.changePct = ((trade.p - stock.openPrice) / stock.openPrice) * 100;
                                     stock.history.push(trade.p);
-                                    if (stock.history.length > 30) stock.history.shift();
+                                    if (stock.history.length > 60) stock.history.shift();
 
                                     evaluateAlertRules(stock);
                                 }
@@ -547,7 +546,7 @@
             const history = [];
             let current = basePrice;
             
-            for (let i = 0; i < 25; i++) {
+            for (let i = 0; i < 50; i++) {
                 const variation = (Math.random() - 0.49) * (basePrice * 0.008);
                 current = Math.max(1, current + variation);
                 history.push(current);
@@ -592,6 +591,9 @@
             AppState.alertRules.forEach(rule => {
                 if (rule.symbol !== stock.symbol) return;
 
+                // Skip triggering if rule has already fired in this session
+                if (rule.triggeredInSession) return;
+
                 let triggered = false;
                 let message = '';
 
@@ -610,6 +612,7 @@
                 }
 
                 if (triggered) {
+                    rule.triggeredInSession = true; // Mark as fired once for this session
                     triggerAlertEffects(rule, stock, message);
                 }
             });
@@ -725,7 +728,6 @@
                 const isPositive = stock.changePct >= 0;
                 const shadedBg = getDegreeShade(stock.changePct);
 
-                // Calculate 30-min Moving Average & Range positioning
                 const maVal = stock.history && stock.history.length > 0
                     ? stock.history.reduce((sum, val) => sum + val, 0) / stock.history.length
                     : stock.price;
@@ -744,33 +746,26 @@
                 card.innerHTML = `
                     <div class="grid grid-cols-12 gap-2 items-center">
                         <!-- Ticker Symbol -->
-                        <div class="col-span-4 sm:col-span-2 flex items-center gap-2">
+                        <div class="col-span-3 sm:col-span-2 flex items-center gap-1.5">
                             <span class="font-bold text-slate-100 text-sm tracking-wide">${stock.symbol}</span>
                         </div>
 
                         <!-- Price -->
-                        <div class="col-span-4 sm:col-span-2 text-right">
+                        <div class="col-span-3 sm:col-span-2 text-left">
                             <span class="font-bold text-slate-100 text-sm">$${stock.price.toFixed(2)}</span>
                         </div>
 
-                        <!-- % Change -->
-                        <div class="col-span-4 sm:col-span-2 text-right">
-                            <span class="font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}">
-                                ${isPositive ? '+' : ''}${stock.changePct.toFixed(2)}%
-                            </span>
-                        </div>
-
-                        <!-- Session High / Low Range with 30-Min Moving Average Indicator Bar -->
-                        <div class="hidden sm:flex flex-col justify-center sm:col-span-3 px-1">
+                        <!-- Session High / Low Range with 1-Hour Moving Average Indicator Bar -->
+                        <div class="hidden sm:flex flex-col justify-center sm:col-span-4 px-1">
                             <div class="relative w-full h-2 bg-slate-800/90 rounded-full border border-slate-700/50 my-1 overflow-visible">
                                 <!-- Momentum Highlight Bar (between MA and Current Price) -->
                                 <div class="absolute top-0 bottom-0 ${pricePct >= maPct ? 'bg-emerald-500/35' : 'bg-rose-500/35'} rounded-full transition-all duration-300"
                                      style="left: ${Math.min(pricePct, maPct)}%; width: ${Math.max(2, Math.abs(pricePct - maPct))}%;"></div>
                                 
-                                <!-- 30-Min MA Marker (Amber Diamond Pip) -->
+                                <!-- 1-Hour MA Marker (Amber Diamond Pip) -->
                                 <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-amber-400 rotate-45 border border-slate-950 shadow-sm z-10 transition-all duration-300"
                                      style="left: ${maPct}%;"
-                                     title="30m Moving Average: $${maVal.toFixed(2)}"></div>
+                                     title="1-Hour Moving Average: $${maVal.toFixed(2)}"></div>
 
                                 <!-- Current Price Marker (Glowing Circle) -->
                                 <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 ${isPositive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.9)]'} border-2 border-slate-950 rounded-full z-20 transition-all duration-300"
@@ -778,16 +773,16 @@
                                      title="Current Price: $${stock.price.toFixed(2)}"></div>
                             </div>
                             
-                            <!-- Range Extreme Readouts & MA Display -->
+                            <!-- Range Extreme Readouts & 1h MA Display -->
                             <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
                                 <span title="Session Low">L: $${stock.low.toFixed(2)}</span>
-                                <span class="text-amber-400/90 text-[9px] font-semibold" title="30-Minute Moving Average">MA $${maVal.toFixed(2)}</span>
+                                <span class="text-amber-400/90 text-[9px] font-semibold" title="1-Hour Moving Average">1h MA $${maVal.toFixed(2)}</span>
                                 <span title="Session High">H: $${stock.high.toFixed(2)}</span>
                             </div>
                         </div>
 
                         <!-- Shaded Color Box (Degree Indicator) -->
-                        <div class="col-span-10 sm:col-span-2">
+                        <div class="col-span-5 sm:col-span-3">
                             <div class="h-6 rounded-lg flex items-center justify-center font-bold text-[11px] text-slate-950 shadow-inner transition-all duration-300" 
                                  style="background-color: ${shadedBg}; shadow: 0 0 10px ${shadedBg};">
                                 <span class="bg-slate-950/40 text-slate-100 px-2 py-0.5 rounded backdrop-blur-sm">
@@ -797,7 +792,7 @@
                         </div>
 
                         <!-- Action -->
-                        <div class="col-span-2 sm:col-span-1 text-center">
+                        <div class="col-span-1 text-center">
                             <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-500 hover:text-rose-400 transition p-1" title="Remove Ticker">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
@@ -972,7 +967,7 @@
                     stock.low = Math.min(stock.low, newPrice);
                     stock.changePct = ((newPrice - stock.openPrice) / stock.openPrice) * 100;
                     stock.history.push(newPrice);
-                    if (stock.history.length > 30) stock.history.shift();
+                    if (stock.history.length > 60) stock.history.shift();
 
                     evaluateAlertRules(stock);
                 });
