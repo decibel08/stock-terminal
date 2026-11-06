@@ -163,6 +163,9 @@
 
                 <!-- Alert Creator Button & Controls -->
                 <div class="md:col-span-6 flex items-center justify-start md:justify-end gap-3 border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
+                    <button id="resetMaBtn" class="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-semibold px-3.5 py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2" title="Reset all 1-hour moving average buffers to current price">
+                        <i class="fa-solid fa-rotate-left"></i> Reset MAs
+                    </button>
                     <button id="openAlertModalBtn" class="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-bell-plus"></i> Set Custom Alert
                     </button>
@@ -356,6 +359,7 @@
         // Core Application State
         const AppState = {
             watchlist: JSON.parse(localStorage.getItem('pt_watchlist')) || DEFAULT_WATCHLIST,
+            stockDirections: JSON.parse(localStorage.getItem('pt_stockDirections')) || {}, // Maps symbol -> 'UP' or 'DOWN'
             stocksData: {}, // Holds price, history, stats for each symbol
             alertRules: JSON.parse(localStorage.getItem('pt_alertRules')) || [
                 { id: '1', symbol: 'NVDA', type: 'PCT_INCREASE_SESSION', threshold: 1.5, color: 'GREEN' },
@@ -400,13 +404,11 @@
         async function fetchFinnhubQuote(symbol) {
             if (!AppState.finnhubKey) return;
             try {
-                // Finnhub ticker format conversion for crypto/forex if needed
                 const cleanSym = symbol.replace('-USD', 'USD').toUpperCase();
                 const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${cleanSym}&token=${AppState.finnhubKey}`);
                 if (!res.ok) throw new Error('Finnhub response error');
                 const data = await res.json();
                 
-                // c = current, h = high, l = low, o = open, pc = previous close
                 if (data && data.c && data.c !== 0) {
                     let stock = AppState.stocksData[symbol];
                     if (!stock) {
@@ -517,20 +519,18 @@
                 const now = ctx.currentTime;
 
                 if (type === 'GREEN') {
-                    // Upward Arpeggio Sound
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(523.25, now); // C5
-                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
-                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1);
+                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2);
                     gain.gain.setValueAtTime(0.3, now);
                     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
                     osc.start(now);
                     osc.stop(now + 0.4);
                 } else {
-                    // Downward Alarm Warning Tone
                     osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(440, now); // A4
-                    osc.frequency.linearRampToValueAtTime(220, now + 0.25); // A3
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.linearRampToValueAtTime(220, now + 0.25);
                     gain.gain.setValueAtTime(0.35, now);
                     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                     osc.start(now);
@@ -573,7 +573,6 @@
         }
 
         function evaluateAlertRules(stock) {
-            // Pulse ticker row if degree of change exceeds 5% threshold in either direction
             if (stock.changePct >= 5.0) {
                 const cardEl = document.getElementById(`stock-card-${stock.symbol}`);
                 if (cardEl && !cardEl.classList.contains('animate-pulse-green')) {
@@ -590,8 +589,6 @@
 
             AppState.alertRules.forEach(rule => {
                 if (rule.symbol !== stock.symbol) return;
-
-                // Skip triggering if rule has already fired in this session
                 if (rule.triggeredInSession) return;
 
                 let triggered = false;
@@ -612,7 +609,7 @@
                 }
 
                 if (triggered) {
-                    rule.triggeredInSession = true; // Mark as fired once for this session
+                    rule.triggeredInSession = true;
                     triggerAlertEffects(rule, stock, message);
                 }
             });
@@ -628,7 +625,6 @@
                 }, 4000);
             }
 
-            // Avoid duplicating identical recent logs within 10 seconds
             const now = new Date();
             const recentDuplicate = AppState.alertLogs.find(l => 
                 l.symbol === stock.symbol && 
@@ -686,19 +682,16 @@
         }
 
         function getDegreeShade(changePct) {
-            // Clamp value between -5% and +5%
             const clamped = Math.max(-5, Math.min(5, changePct));
             
             if (clamped >= 0) {
                 const ratio = clamped / 5;
-                // Interpolate from neutral slate (#334155 / rgb(51, 65, 85)) to vibrant green (#00ff88 / rgb(0, 255, 136))
                 const r = Math.round(51 + (0 - 51) * ratio);
                 const g = Math.round(65 + (255 - 65) * ratio);
                 const b = Math.round(85 + (136 - 85) * ratio);
                 return `rgb(${r}, ${g}, ${b})`;
             } else {
                 const ratio = Math.abs(clamped) / 5;
-                // Interpolate from neutral slate (#334155 / rgb(51, 65, 85)) to vibrant red (#ff3366 / rgb(255, 51, 102))
                 const r = Math.round(51 + (255 - 51) * ratio);
                 const g = Math.round(65 + (51 - 65) * ratio);
                 const b = Math.round(85 + (102 - 85) * ratio);
@@ -727,6 +720,7 @@
 
                 const isPositive = stock.changePct >= 0;
                 const shadedBg = getDegreeShade(stock.changePct);
+                const targetDir = AppState.stockDirections[symbol] || 'UP';
 
                 const maVal = stock.history && stock.history.length > 0
                     ? stock.history.reduce((sum, val) => sum + val, 0) / stock.history.length
@@ -739,7 +733,6 @@
                     card = document.createElement('div');
                     card.id = `stock-card-${symbol}`;
                     card.className = `glass-panel rounded-xl p-3 transition-all duration-300 border border-slate-800/80 hover:border-slate-700/90 relative group text-xs font-mono`;
-
                     grid.appendChild(card);
                 }
 
@@ -782,7 +775,7 @@
                         </div>
 
                         <!-- Shaded Color Box (Degree Indicator) -->
-                        <div class="col-span-5 sm:col-span-3">
+                        <div class="col-span-4 sm:col-span-3">
                             <div class="h-6 rounded-lg flex items-center justify-center font-bold text-[11px] text-slate-950 shadow-inner transition-all duration-300" 
                                  style="background-color: ${shadedBg}; shadow: 0 0 10px ${shadedBg};">
                                 <span class="bg-slate-950/40 text-slate-100 px-2 py-0.5 rounded backdrop-blur-sm">
@@ -791,8 +784,11 @@
                             </div>
                         </div>
 
-                        <!-- Action -->
-                        <div class="col-span-1 text-center">
+                        <!-- Direction Target Arrow & Action Icons -->
+                        <div class="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5">
+                            <button onclick="toggleStockDirection(event, '${symbol}')" class="p-1.5 rounded hover:bg-slate-800 transition" title="Target Direction: ${targetDir === 'UP' ? 'Bullish (Up)' : 'Bearish (Down)'}">
+                                <i class="fa-solid ${targetDir === 'UP' ? 'fa-circle-arrow-up text-emerald-400' : 'fa-circle-arrow-down text-rose-500'} text-sm transition-transform active:scale-125"></i>
+                            </button>
                             <button onclick="removeStockFromWatchlist(event, '${symbol}')" class="text-slate-500 hover:text-rose-400 transition p-1" title="Remove Ticker">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
@@ -800,6 +796,26 @@
                     </div>
                 `;
             });
+        }
+
+        function toggleStockDirection(event, symbol) {
+            if (event) event.stopPropagation();
+            const currentDir = AppState.stockDirections[symbol] || 'UP';
+            const newDir = currentDir === 'UP' ? 'DOWN' : 'UP';
+            AppState.stockDirections[symbol] = newDir;
+            localStorage.setItem('pt_stockDirections', JSON.stringify(AppState.stockDirections));
+            renderWatchlist();
+        }
+
+        function resetAllMovingAverages() {
+            Object.keys(AppState.stocksData).forEach(symbol => {
+                const stock = AppState.stocksData[symbol];
+                if (stock) {
+                    stock.history = [stock.price];
+                }
+            });
+            renderWatchlist();
+            showToastNotification('MA RESET', 'All 1-hour moving averages reset to current stock prices.', 'GREEN');
         }
 
         function renderMarquee() {
@@ -821,7 +837,6 @@
                 `;
             }).join('');
 
-            // Duplicate items to ensure seamless infinite looping animation
             marquee.innerHTML = items + items;
         }
 
@@ -940,15 +955,12 @@
 
         function updateStockPrices() {
             if (AppState.feedMode === 'FINNHUB_REST' && AppState.finnhubKey) {
-                // Fetch real Finnhub quotes for each watched stock
                 AppState.watchlist.forEach(symbol => fetchFinnhubQuote(symbol));
             } else if (AppState.feedMode === 'FINNHUB' && AppState.finnhubKey) {
-                // WebSocket manages stream in real-time
                 renderWatchlist();
                 renderMarquee();
                 return;
             } else {
-                // Fallback / Mock Brownian Motion
                 AppState.watchlist.forEach(symbol => {
                     let stock = AppState.stocksData[symbol];
                     if (!stock) {
@@ -956,8 +968,7 @@
                         AppState.stocksData[symbol] = stock;
                     }
 
-                    // Simulate sub-second price Brownian motion
-                    const deltaPct = (Math.random() - 0.492) * 0.008; // Slight upward bias
+                    const deltaPct = (Math.random() - 0.492) * 0.008;
                     const oldPrice = stock.price;
                     const newPrice = Math.max(0.1, oldPrice * (1 + deltaPct));
 
@@ -984,7 +995,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize stock state for default watchlist
             AppState.watchlist.forEach(sym => {
                 AppState.stocksData[sym] = initializeStockData(sym);
             });
@@ -996,7 +1006,6 @@
             renderAlertRules();
             populateModalTickerOptions();
 
-            // Form Submit: Add Ticker
             document.getElementById('addStockForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const input = document.getElementById('tickerInput');
@@ -1004,14 +1013,14 @@
                 input.value = '';
             });
 
-            // Quick Add Buttons
             document.querySelectorAll('.quick-add').forEach(btn => {
                 btn.addEventListener('click', () => {
                     addStockToWatchlist(btn.textContent);
                 });
             });
 
-            // Tab Controls
+            document.getElementById('resetMaBtn').addEventListener('click', resetAllMovingAverages);
+
             const tabLogs = document.getElementById('tabAlertLogs');
             const tabRules = document.getElementById('tabAlertRules');
             const feedLogs = document.getElementById('alertLogFeed');
@@ -1031,14 +1040,12 @@
                 feedLogs.classList.add('hidden');
             });
 
-            // Clear Logs Button
             document.getElementById('clearLogsBtn').addEventListener('click', () => {
                 AppState.alertLogs = [];
                 localStorage.removeItem('pt_alertLogs');
                 renderAlertLogs();
             });
 
-            // Modal Controls
             const alertModal = document.getElementById('alertModal');
             const settingsModal = document.getElementById('settingsModal');
             const feedModeSelect = document.getElementById('feedModeSelect');
@@ -1054,7 +1061,6 @@
             document.getElementById('closeAlertModalBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
             document.getElementById('cancelRuleBtn').addEventListener('click', () => alertModal.classList.add('hidden'));
 
-            // Settings Modal Open & Controls
             document.getElementById('settingsBtn').addEventListener('click', () => {
                 feedModeSelect.value = AppState.feedMode;
                 finnhubApiKeyInput.value = AppState.finnhubKey;
@@ -1078,7 +1084,6 @@
                 }
             });
 
-            // Apply & Save Feed Settings Handler
             document.getElementById('saveSettingsBtn').addEventListener('click', () => {
                 const newMode = feedModeSelect.value;
                 const newKey = finnhubApiKeyInput.value.trim();
@@ -1111,7 +1116,6 @@
                 showToastNotification('SETTINGS SAVED', `Data source updated to ${newMode === 'MOCK' ? 'Simulated Mock Feed' : 'Finnhub Live Data'}.`, 'GREEN');
             });
 
-            // Alert Rule Form Submission
             document.getElementById('createRuleForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const symbol = document.getElementById('modalTickerSelect').value;
@@ -1139,7 +1143,6 @@
                 showToastNotification(symbol, `Created new alert rule for ${symbol}`, color);
             });
 
-            // Audio Toggle Buttons
             const audioBtn = document.getElementById('audioToggleBtn');
             const mobileAudioBtn = document.getElementById('mobileAudioToggle');
 
@@ -1163,7 +1166,6 @@
             audioBtn.addEventListener('click', toggleAudio);
             mobileAudioBtn.addEventListener('click', toggleAudio);
 
-            // Test Alert Button
             document.getElementById('triggerTestAlertBtn').addEventListener('click', () => {
                 if (AppState.watchlist.length === 0) return;
                 const testSymbol = AppState.watchlist[0];
@@ -1174,12 +1176,10 @@
                 }
             });
 
-            // Initial WebSocket setup if configured
             if (AppState.feedMode === 'FINNHUB' && AppState.finnhubKey) {
                 setupFinnhubWebSocket();
             }
 
-            // Start Data Stream Timer Loop
             restartFeedTimer();
         });
     </script>
